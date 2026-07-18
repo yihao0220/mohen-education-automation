@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -17,7 +18,12 @@ from tools.trim_future_biology_answers import (
 )
 
 
-REAL_BATCH = Path("/Users/xiaosheng/Documents/墨痕教育/未来-高二-生物")
+REAL_BATCH = Path(
+    os.environ.get(
+        "MOHEN_FUTURE_BIOLOGY_DIR",
+        Path(__file__).resolve().parents[2] / "墨痕教育" / "未来-高二-生物",
+    )
+)
 
 
 def _sha256(path: Path) -> str:
