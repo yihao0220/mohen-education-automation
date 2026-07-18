@@ -14,7 +14,7 @@ MANIFEST_SCHEMA_VERSION = "1.0"
 GENERATOR_NAME = "mohen-wps-page-render-p1b"
 DEFAULT_DPI = 144
 PDF_FORMAT = 17
-WPS_PROGIDS = ("KWPS.Application", "wps.Application", "Word.Application")
+WPS_PROGIDS = ("KWPS.Application", "wps.Application")
 
 
 def sha256_file(path: str | Path) -> str:

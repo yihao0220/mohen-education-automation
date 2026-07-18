@@ -116,7 +116,7 @@ rg -n "直接套用|修改后使用|学习核心思路|许可证|PyMuPDF" docs/r
 
 ```powershell
 python tools\build_document_render.py SOURCE.docx --output-dir OUTPUT
-python tools\build_document_render.py SOURCE.docx --pdf-input WPS.pdf --output-dir OUTPUT
+python tools\build_document_render.py SOURCE.docx --pdf-input WPS.pdf --attest-wps-export --output-dir OUTPUT
 python tools\build_visual_review.py PageRenderManifest.json --output-dir OUTPUT
 python tools\calibrate_document_families.py DocumentFamilyReport.json GroundTruth.json --reviews REVIEW_DIR --output-dir OUTPUT
 ```

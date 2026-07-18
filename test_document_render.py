@@ -274,6 +274,24 @@ def test_wps_export_falls_back_to_saveas2_and_cleans_failed_pdf(tmp_path: Path) 
     assert broken_app.quit_called is True
 
 
+def test_wps_export_never_falls_back_to_microsoft_word(tmp_path: Path) -> None:
+    source = tmp_path / "source" / "source.docx"
+    output_pdf = tmp_path / "render" / "source.pdf"
+    _build_source(source)
+    attempted = []
+
+    def unavailable(progid: str):
+        attempted.append(progid)
+        raise RuntimeError("not registered")
+
+    with pytest.raises(RuntimeError, match="无法创建 WPS Writer COM 对象"):
+        export_docx_to_pdf_with_wps(source, output_pdf, dispatch_factory=unavailable)
+
+    assert attempted == ["KWPS.Application", "wps.Application"]
+    assert "Word.Application" not in attempted
+    assert not output_pdf.exists()
+
+
 def test_sha256_helper_matches_hashlib(tmp_path: Path) -> None:
     path = tmp_path / "payload.bin"
     path.write_bytes(b"payload")

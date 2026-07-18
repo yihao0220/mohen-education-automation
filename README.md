@@ -21,7 +21,7 @@
 ## 两台电脑的职责
 
 - Mac：开发、测试和 Quick Look 视觉预览。它能识别页面上的题目文字、题图与装饰图，但连续预览不是 WPS 分页真值。
-- Windows：WPS 生产验证与最终录入。只有 `wps_com` 或明确传入的 WPS PDF 才能标记 `page_truth_authority=true`。
+- Windows：WPS 生产验证与最终录入。只有真实 WPS COM，或配合 `--attest-wps-export` 明确确认来源的 WPS PDF，才能标记 `page_truth_authority=true`；Microsoft Word 不作为回退渲染器。
 - 两端共用同一 Git 仓库；原题、答案、页面截图、JSON 批次产物和凭据不提交到仓库。
 
 日常同步采用普通 Git 工作流：
@@ -36,13 +36,14 @@ git commit -m "说明本次修改"
 git push
 ```
 
-Windows 首次使用时，把私有仓库克隆到代码目录，不要克隆进题目/答案业务目录：
+Windows 首次使用时，把仓库克隆到代码目录，不要克隆进题目/答案业务目录。若这台电脑也要修改和测试代码，使用开发安装：
 
 ```powershell
-git clone <你的私有仓库HTTPS地址> D:\CODEX.projection\墨痕教育
+git clone https://github.com/yihao0220/mohen-education-automation.git D:\CODEX.projection\墨痕教育
 Set-Location D:\CODEX.projection\墨痕教育
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\setup_windows.ps1
+.\scripts\setup_windows.ps1 -Development
+.\scripts\verify_windows.ps1 -RunTests
 ```
 
 源文档和 P1b 产物继续放在仓库外部，两台电脑各自通过 `工作台路径配置.json` 指向本机业务目录；仓库只提供不含个人路径的 `工作台路径配置.example.json`。
@@ -61,6 +62,15 @@ Windows PowerShell：
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\setup_windows.ps1
 ```
+
+Windows 同时承担开发时：
+
+```powershell
+.\scripts\setup_windows.ps1 -Development
+.\scripts\verify_windows.ps1 -RunTests
+```
+
+自检只读取 Python 依赖和 WPS COM 注册表，并运行离线测试；不会启动 WPS、打开原题或模拟按键。
 
 ## 生产运行前提
 
@@ -118,6 +128,18 @@ Windows 生产机运行同一入口，`auto` 会改用 WPS COM：
 ```
 
 输出的 `PageRenderManifest.json` 是机器事实；Mac 结果固定 `page_truth_authority=false`，不能通过 P1b 生产校准门禁。Windows 结果仍需人工完成 `VisualReview.json`，整批审核通过后才允许生成校准报告；当前所有生产执行开关仍为 `false`。
+
+如果 PDF 已在另一台 Windows 电脑中由 WPS 导出，必须显式确认其来源：
+
+```powershell
+.\.venv\Scripts\python.exe .\tools\build_document_render.py `
+  "D:\原题\作业1.docx" `
+  --pdf-input "D:\P1b产物\作业1-WPS.pdf" `
+  --attest-wps-export `
+  --output-dir "D:\P1b产物\作业1"
+```
+
+未传 `--attest-wps-export` 的任意外部 PDF 固定视为开发预览，不能通过生产门禁。
 
 清洗后的答案文档必须先通过审核门禁；用户手改 `_已清洗.docx` 后，视为审核状态失效，需要重新审核。
 

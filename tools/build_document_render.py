@@ -22,6 +22,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", required=True, type=Path, help="原题目录之外的产物目录")
     parser.add_argument("--pdf-input", type=Path, help="已由 WPS 导出的 PDF；不传则使用 Windows WPS COM")
     parser.add_argument(
+        "--attest-wps-export",
+        action="store_true",
+        help="确认 --pdf-input 确由 WPS 导出；未确认的外部 PDF 只作开发预览",
+    )
+    parser.add_argument(
         "--renderer",
         choices=("auto", "wps", "macos-quicklook"),
         default="auto",
@@ -37,16 +42,28 @@ def _run(args: argparse.Namespace) -> dict[str, object]:
     if source.name.startswith(("~$", ".~")):
         raise ValueError(f"拒绝 WPS 临时文件：{source.name}")
     target = args.output_dir.resolve()
+    if args.attest_wps_export and args.pdf_input is None:
+        raise ValueError("--attest-wps-export 只能与 --pdf-input 同时使用")
     if args.pdf_input is not None:
         pdf_path = args.pdf_input.resolve()
-        renderer_metadata = {
-            "provider": "preexported_wps_pdf",
-            "renderer_role": "production_truth",
-            "page_truth_authority": True,
-            "layout_mode": "wps_pages",
-            "read_only_open": True,
-            "source_hash_verified_unchanged": True,
-        }
+        if args.attest_wps_export:
+            renderer_metadata = {
+                "provider": "user_attested_wps_pdf",
+                "renderer_role": "production_truth",
+                "page_truth_authority": True,
+                "layout_mode": "wps_pages",
+                "read_only_open": True,
+                "source_hash_verified_unchanged": True,
+            }
+        else:
+            renderer_metadata = {
+                "provider": "external_pdf_preview",
+                "renderer_role": "development_preview",
+                "page_truth_authority": False,
+                "layout_mode": "external_pdf_pages",
+                "read_only_open": True,
+                "source_hash_verified_unchanged": True,
+            }
     elif args.renderer == "wps" or (args.renderer == "auto" and sys.platform == "win32"):
         pdf_path = target / "wps-render.pdf"
         renderer_metadata = export_docx_to_pdf_with_wps(source, pdf_path)

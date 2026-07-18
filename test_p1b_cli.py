@@ -50,9 +50,12 @@ def test_render_and_visual_review_cli_offline(tmp_path: Path) -> None:
     assert rendered.returncode == 0, rendered.stderr
     result = json.loads(rendered.stdout)
     assert result["page_count"] == 1
+    assert result["page_truth_authority"] is False
     assert result["production_execution_enabled"] is False
     manifest = render_dir / "PageRenderManifest.json"
     assert manifest.is_file()
+    manifest_data = json.loads(manifest.read_text(encoding="utf-8"))
+    assert manifest_data["render"]["provider"] == "external_pdf_preview"
 
     review_dir = tmp_path / "review"
     reviewed = _run(
@@ -66,6 +69,52 @@ def test_render_and_visual_review_cli_offline(tmp_path: Path) -> None:
     assert review_result["gate_ready"] is False
     assert (review_dir / "VisualRoleReview.json").is_file()
     assert (review_dir / "VisualReviewSummary.json").is_file()
+
+
+def test_render_cli_requires_explicit_attestation_for_preexported_wps_pdf(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source" / "sample.docx"
+    source.parent.mkdir()
+    source.write_bytes(b"readonly-docx")
+    pdf = tmp_path / "wps.pdf"
+    _pdf(pdf)
+    output_dir = tmp_path / "render"
+
+    rendered = _run(
+        "tools/build_document_render.py",
+        source,
+        "--pdf-input",
+        pdf,
+        "--attest-wps-export",
+        "--output-dir",
+        output_dir,
+    )
+
+    assert rendered.returncode == 0, rendered.stderr
+    result = json.loads(rendered.stdout)
+    manifest = json.loads(
+        (output_dir / "PageRenderManifest.json").read_text(encoding="utf-8")
+    )
+    assert result["page_truth_authority"] is True
+    assert manifest["render"]["provider"] == "user_attested_wps_pdf"
+
+
+def test_render_cli_rejects_attestation_without_pdf_input(tmp_path: Path) -> None:
+    source = tmp_path / "source" / "sample.docx"
+    source.parent.mkdir()
+    source.write_bytes(b"readonly-docx")
+
+    result = _run(
+        "tools/build_document_render.py",
+        source,
+        "--attest-wps-export",
+        "--output-dir",
+        tmp_path / "render",
+    )
+
+    assert result.returncode != 0
+    assert "只能与 --pdf-input 同时使用" in result.stderr
 
 
 def test_render_cli_rejects_source_pollution_and_wps_lock_files(tmp_path: Path) -> None:
