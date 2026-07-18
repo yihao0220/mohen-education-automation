@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [switch]$RunTests
 )
@@ -37,7 +37,8 @@ if ($RunTests) {
         test_p1b_cli.py `
         test_p1b_batch.py `
         test_document_preflight.py `
-        test_document_families.py
+        test_document_families.py `
+        test_windows_scripts.py
     if ($LASTEXITCODE -ne 0) {
         throw "P1b 离线测试失败。"
     }
