@@ -47,8 +47,10 @@
 │   ├── document_render.py          # 跨平台PDF页面渲染；Windows WPS生产真值
 │   ├── macos_quicklook_render.py   # macOS Quick Look连续开发预览
 │   ├── document_visual_review.py   # 页面视觉角色与人工审核门禁
-│   └── document_family_calibration.py # P1b阈值校准与整批门禁
-├── 回归样本/                       # 固定回归样本、样本清单与预检基线
+│   ├── document_family_calibration.py # P1b阈值校准与整批门禁
+│   ├── p1b_batch.py                # Windows WPS整批只读副本与哈希清单
+│   └── cli_output.py               # 跨平台CLI UTF-8输出
+├── 回归样本/                       # 可复现说明；真实基线与批次报告仅本机生成
 └── tests / test_*.py               # 根目录与子目录混合的回归测试
 ```
 
@@ -105,8 +107,8 @@
    - `DocumentProfile.json` 和 `ActionPlan.json` 是机器事实与执行契约；Markdown 只能由 JSON 派生，用于人工审核，不得反向作为执行输入
    - 第一阶段 PoC 固定 `execution_enabled=false`；在 WPS Range 绑定、审核门禁和受控执行器完成前，不得把预演计划直接改成真实 F1/F2/F3/F4 执行
    - `DocumentProfile` 1.1 的题内角色当前只作证据；`automatic_exclusion_enabled=false`，不得让角色结果绕过文档族阈值和审核门禁直接删除段落
-- `DocumentFamilyReport` 1.0 当前只作 P1a 批次建议；`classification_mode=advisory_only`、`automatic_rule_binding_enabled=false`、`production_execution_enabled=false`，不得把候选文档族直接绑定到生产规则或 WPS 执行
-- P1b 的 macOS Quick Look 结果固定 `page_truth_authority=false`，只供开发预览；只有 Windows WPS COM 或明确由 WPS 导出的 PDF 才能作为生产页面真值，且 52/52 人工审核完成前不得进入 P1c
+   - `DocumentFamilyReport` 1.0 当前只作 P1a 批次建议；`classification_mode=advisory_only`、`automatic_rule_binding_enabled=false`、`production_execution_enabled=false`，不得把候选文档族直接绑定到生产规则或 WPS 执行
+   - P1b 的 macOS Quick Look 结果固定 `page_truth_authority=false`，只供开发预览；只有 Windows WPS COM，或与 `--pdf-input` 同时显式传入 `--attest-wps-export` 的 WPS PDF，才能作为生产页面真值；52/52 人工审核完成前不得进入 P1c
 
 ### 代码风格
 
@@ -128,6 +130,7 @@
 | **科目识别错误** | `墨痕快刀/config.py`、`墨痕快刀/core_parser.py` | `detect_subject()` / overlay 逻辑 |
 | **预检画像/动作计划异常** | `shared_core/document_preflight.py`、`test_document_preflight.py` | 先核对源文件 SHA256、原生节点坐标、Docling 对照和 `execution_enabled` |
 | **文档族分组/异常候选异常** | `shared_core/document_families.py`、`test_document_families.py` | 先核对 Profile schema、角色分布、分项相似度、完全链接阈值与三个安全开关 |
+| **P1b 页面/视觉门禁异常** | `shared_core/document_render.py`、`shared_core/document_visual_review.py`、`shared_core/document_family_calibration.py` | 先核对渲染 provider、`page_truth_authority`、源哈希、未知区域和三个安全开关 |
 | **WPS 未连接** | - | 确保 WPS 已打开文档 + 插件侧边栏已加载 |
 
 ---
@@ -198,8 +201,8 @@ WAIT_TIME = 1.0        # 按键等待时间
 
 ### 架构优先级
 
-- 架构进度以 `docs/墨痕教育架构问题工程思维分析拆解.md` 为准；截至 2026-07-16，6 个根问题为 1 个已解决、5 个部分解决、0 个未解决（严格完成 1/6，已进入工程解决 6/6）
-- P1a 已能从 Profile 1.1 生成候选文档族、代表样本和异常候选，但只属于 `advisory_only`；同一真实项目批次阈值校准、整批审核门禁和文档族规则快照完成前，不得视为生产分族完成
+- 架构进度以 `docs/墨痕教育架构问题工程思维分析拆解.md` 为准；截至 2026-07-18，6 个根问题为 1 个已解决、5 个部分解决、0 个未解决（严格完成 1/6，已进入工程解决 6/6）
+- P1a 已能从 Profile 1.1 生成候选文档族、代表样本和异常候选；P1b 跨平台页面视觉审核与校准门禁框架已落地，但 52/52 Windows WPS 真实批次尚未审核，P1c 文档族规则快照也未形成，因此不得视为生产分族完成
 - 学科逻辑优先采用“三大核心 + 学科覆盖层”，不要直接把系统拆成一套套完全独立的地理/生物/语文引擎
 - 三大核心仍是 `英语 / 理科 / 文科`，具体学科差异优先放到 `subject_overlay`
 - 当前已验证可行的模式是 `文科 + geography`；后续若扩生物、历史、政治，也优先复用 overlay 机制
@@ -247,6 +250,7 @@ WAIT_TIME = 1.0        # 按键等待时间
 ### 输出与工作区管理
 
 - 开发辅助产物，如 `_审核清单.md`、调试摘要、归档补充文档，默认放项目目录或 `E:` 盘长期目录，不要放进用户的题目源目录
+- P1b PDF、页面 PNG、页面/视觉/校准 JSON 及 `BatchSourceManifest.json` 必须放在原题和 Git 仓库之外，不得提交业务路径或真实文档派生事实
 - 清洗后的答案文件，每份只保留一个最终版 `*_已清洗.docx`，中间版本及时清理
 - 面向用户实际录入的目录尽量只保留“原题 / 原答案 / 最终清洗版”，不要混入开发过程文件
 

@@ -14,7 +14,7 @@
 | 答案录入 | `答案录入/answer_input.py` | 稳定可用 | F2/F3/F4 自动录入，依赖审核状态文件 |
 | DOCX 只读预检 | `tools/build_document_preflight.py` | PoC + P0 可用 | 生成 Profile 1.1、题内角色证据、Docling 对照和 F1 预演计划；固定不连接 WPS、不执行按键 |
 | 文档族分析 | `tools/analyze_document_families.py` | P1a 可用 | 读取一批 Profile 1.1，生成候选文档族、代表样本、异常候选和人工复核队列；固定只作建议 |
-| 页面视觉预检 | `tools/build_document_render.py` | P1b 开发预览可用 | Mac 用 Quick Look 生成连续视觉预览；Windows 用 WPS COM 生成生产页面真值；两者均不执行 F1/F2/F3/F4 |
+| 页面视觉预检 | `tools/build_document_render.py` | P1b 跨平台框架可用；生产批次待校准 | Mac 用 Quick Look 生成连续视觉预览；Windows 用 WPS COM 生成生产页面真值；52 份真实批次人工门禁尚未完成，两者均不执行 F1/F2/F3/F4 |
 
 架构问题主口径共 6 个：当前 **1 个已解决、5 个部分解决、0 个未解决**。严格完成口径是 `1/6`，已进入工程解决口径是 `6/6`；详细进度见[《墨痕教育架构问题工程思维分析拆解》](./docs/墨痕教育架构问题工程思维分析拆解.md)。
 
@@ -129,7 +129,18 @@ Windows 生产机运行同一入口，`auto` 会改用 WPS COM：
   --output-dir "D:\墨痕教育-P1b产物\作业1"
 ```
 
-输出的 `PageRenderManifest.json` 是机器事实；Mac 结果固定 `page_truth_authority=false`，不能通过 P1b 生产校准门禁。Windows 结果仍需人工完成 `VisualReview.json`，整批审核通过后才允许生成校准报告；当前所有生产执行开关仍为 `false`。
+输出的 `PageRenderManifest.json` 是机器事实；Mac 结果固定 `page_truth_authority=false`，不能通过 P1b 生产校准门禁。Windows 结果仍需人工完成 `VisualRoleReview.json`，整批审核通过后才允许生成校准报告；当前所有生产执行开关仍为 `false`。
+
+未来高二生物整批校准前，可先在仓库和原题之外生成只读副本及清单：
+
+```powershell
+.\.venv\Scripts\python.exe .\tools\prepare_p1b_wps_batch.py `
+  "D:\墨痕教育题目\未来-高二-生物" `
+  --output-dir "D:\墨痕教育-P1b产物\未来-高二-生物-WPS只读副本" `
+  --expected-count 52
+```
+
+该命令只复制 `选必一活页`、`选必二活页` 下的正式 DOCX，排除锁文件，校验原件与副本哈希，并生成 `BatchSourceManifest.json`；它不启动 WPS，也不代表 52/52 人工审核已通过。
 
 如果 PDF 已在另一台 Windows 电脑中由 WPS 导出，必须显式确认其来源：
 
@@ -168,11 +179,11 @@ Windows 生产机运行同一入口，`auto` 会改用 WPS COM：
 | `墨痕快刀/` | 题目录入核心，包含 WPS COM 扫描、题块识别、F1 录入 |
 | `格式处理/` | 答案清洗模板系统 |
 | `答案录入/` | 答案、解析、小题答案自动录入 |
-| `shared_core/` | 题目/答案共享内核、审核门禁、学科策略；`document_preflight.py` 提供只读画像与预演动作计划，`document_roles.py` 提供题内角色证据，`document_families.py` 提供只读文档族分析 |
-| `tools/` | 拆分、检查、批处理工具 |
+| `shared_core/` | 题目/答案共享内核、审核门禁、学科策略；DOCX 预检、文档族、页面渲染、视觉审核、P1b 校准与只读批次准备均在此实现 |
+| `tools/` | 拆分、检查、批处理及 P0/P1a/P1b 命令行入口 |
 | `docs/` | 架构分析与工程设计基线；入口见[《墨痕教育架构问题工程思维分析拆解》](./docs/墨痕教育架构问题工程思维分析拆解.md) |
 | `问题归档/` | 每次代码问题修复的证据归档 |
-| `回归样本/` | 固定回归样本入口；`预检基线/` 保存单文档 JSON/MD 基线，`文档族分析/` 保存 P1a 批次报告 |
+| `回归样本/` | 可复现说明入口；真实样本清单、预检基线和 P1a 报告只在本机生成并被 Git 忽略 |
 
 ## 重点项目
 
@@ -243,6 +254,7 @@ Windows 生产机运行同一入口，`auto` 会改用 WPS COM：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider .\test_document_preflight.py .\test_document_families.py
+.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider .\test_document_render.py .\test_macos_quicklook_render.py .\test_document_visual_review.py .\test_document_family_calibration.py .\test_p1b_cli.py .\test_p1b_batch.py .\test_windows_scripts.py
 python -m pytest -q .\test_future_physics_workflow.py -k "AnswerInput"
 python -m pytest -q .\test_future_history_workflow.py
 python -m pytest -q .\test_zhongmei_chinese_workflow.py

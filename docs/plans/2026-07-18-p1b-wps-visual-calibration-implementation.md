@@ -1,10 +1,12 @@
 # P1b WPS Visual Calibration Implementation Plan
 
+> **Current status (2026-07-18):** Tasks 1-6 and the cross-platform framework are implemented and verified; Task 7 still requires the 52-document Windows WPS production calibration.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Build a read-only P1b sidecar that turns WPS-rendered PDFs into page PNG/layout JSON, records confirmed visual roles, calibrates P1a against execution-rule ground truth, and produces a blocking batch-gate report without enabling production F1.
 
-**Architecture:** Keep rendering facts, review decisions, and calibration conclusions in separate JSON contracts. WPS exports the source document to PDF in read-only mode; Poppler renders pages; `pdfplumber` extracts page-coordinate text and image facts; a review layer binds regions to roles and question IDs; a calibration layer compares P1a clusters with human rule-family labels. Existing `DocumentProfile.json`, `ActionPlan.json`, and production parsers remain unchanged.
+**Architecture:** Keep rendering facts, review decisions, and calibration conclusions in separate JSON contracts. macOS Quick Look + WebKit provides non-authoritative development preview; Windows WPS exports the source document to PDF in read-only mode for production page truth; `pypdfium2` renders pages by default with `pdftoppm` fallback; `pdfplumber` extracts page-coordinate text and image facts. A review layer binds regions to roles and question IDs, and a calibration layer compares P1a clusters with human rule-family labels. Existing `DocumentProfile.json`, `ActionPlan.json`, and production parsers remain unchanged.
 
 **Tech Stack:** Python 3.12, pywin32/WPS COM on Windows, macOS Quick Look + WebKit for development preview, `pypdfium2` with `pdftoppm` fallback, `pdfplumber`, Pillow, pytest, python-docx/OOXML.
 
@@ -12,7 +14,7 @@
 
 ## Constraints
 
-- The user has separately authorized local Git initialization and a private GitHub handoff; source documents and derived review artifacts must remain ignored.
+- The user has separately authorized GitHub handoff; source documents, local business paths, and derived review artifacts must remain ignored regardless of repository visibility.
 - Do not modify `wps_helper.py`, `墨痕快刀/core_parser.py`, or source DOCX files.
 - Reject every output path that can overwrite or pollute an input directory.
 - Hash each source before and after WPS export.
@@ -34,7 +36,7 @@
 Run:
 
 ```bash
-rg -n "直接套用|修改后使用|学习核心思路|许可证|PyMuPDF" docs/research/2026-07-18-p1b-document-visual-open-source.md
+rg -n "直接套用|方法思路修改一下能用|学习它的核心方法思路|许可证|PyMuPDF" docs/research/2026-07-18-p1b-document-visual-open-source.md
 ```
 
 ### Task 2: Implement deterministic PDF page manifests
@@ -62,7 +64,7 @@ rg -n "直接套用|修改后使用|学习核心思路|许可证|PyMuPDF" docs/r
 **Steps:**
 
 1. Write fake-COM tests before implementation.
-2. Require lazy pywin32 import and ProgID fallback beginning with `KWPS.Application`.
+2. Require lazy pywin32 import and the exact WPS-only ProgID order `KWPS.Application`, `wps.Application`; never fall back to `Word.Application`.
 3. Require `ConfirmConversions=False`, `ReadOnly=True`, and `AddToRecentFiles=False`.
 4. Require PDF export through `ExportAsFixedFormat` or `SaveAs2(..., 17)` fallback.
 5. Require `Close(SaveChanges=0)`, source hash verification, and failed partial-PDF cleanup.
@@ -129,7 +131,7 @@ python tools\calibrate_document_families.py DocumentFamilyReport.json GroundTrut
 
 **Files:**
 - Create outside the source directory: caller-selected PDF/PNG/JSON artifact directory.
-- Create: `回归样本/P1b未来高二生物/README.md` with reproducible commands and compact report references, not all page PNGs.
+- Modify: `README.md` with reproducible commands and compact report references; keep all real PDF/PNG/JSON artifacts outside the repository.
 
 **Steps:**
 
@@ -147,7 +149,7 @@ python tools\calibrate_document_families.py DocumentFamilyReport.json GroundTrut
 **Files:**
 - Modify: `问题归档/INDEX.md`
 - Modify: `问题归档/题目录入/INDEX.md`
-- Create: `问题归档/题目录入/2026-07-18-P1b-WPS页面视觉校准与批次门禁.md`
+- Create: `问题归档/题目录入/2026-07-18-P1b跨平台页面视觉预检与校准门禁.md`
 - Modify: `docs/墨痕教育架构问题工程思维分析拆解.md`
 - Modify only if required: `README.md`, `AGENTS.md`
 
@@ -158,11 +160,14 @@ python tools\calibrate_document_families.py DocumentFamilyReport.json GroundTrut
 ```bash
 python -m pytest -q -p no:cacheprovider \
   test_document_render.py \
+  test_macos_quicklook_render.py \
   test_document_visual_review.py \
   test_document_family_calibration.py \
   test_p1b_cli.py \
+  test_p1b_batch.py \
   test_document_preflight.py \
-  test_document_families.py
+  test_document_families.py \
+  test_windows_scripts.py
 ```
 
 2. Clean test PDFs, PNGs, temporary JSON/Markdown, and harness-created lock files.

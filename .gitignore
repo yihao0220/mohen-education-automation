@@ -81,9 +81,13 @@ task_instruction.md
 **/PageRenderManifest.md
 **/VisualReview.json
 **/VisualReview.md
+**/VisualRoleReview.json
+**/VisualRoleReview.md
+**/VisualReviewSummary.json
 **/P1bCalibrationReport.json
 **/P1bCalibrationReport.md
 **/WpsReadonlyBatch.json
+**/BatchSourceManifest.json
 
 # Real document-derived regression facts stay local
 回归样本/样本清单.json
