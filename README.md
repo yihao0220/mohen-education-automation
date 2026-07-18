@@ -72,6 +72,8 @@ Windows 同时承担开发时：
 
 自检只读取 Python 依赖和 WPS COM 注册表，并运行离线测试；不会启动 WPS、打开原题或模拟按键。
 
+仓库的 `P1b Windows verification` 工作流会在全新的 GitHub Windows runner 上执行同一开发安装和离线回归，用于持续证明 Windows 可克隆、安装并修改；runner 不安装 WPS，因此真实 WPS COM 页面真值仍由生产机自检和人工门禁负责。
+
 ## 生产运行前提
 
 1. Windows 环境。

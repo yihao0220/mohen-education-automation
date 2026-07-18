@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$Development
+    [switch]$Development,
+    [string]$PythonCommand = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,7 +10,10 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $VenvDir = Join-Path $ProjectRoot ".venv"
 $VenvPython = Join-Path $VenvDir "Scripts\python.exe"
 
-if (Get-Command py -ErrorAction SilentlyContinue) {
+if ($PythonCommand) {
+    & $PythonCommand -m venv $VenvDir
+}
+elseif (Get-Command py -ErrorAction SilentlyContinue) {
     & py -3 -m venv $VenvDir
 }
 elseif (Get-Command python -ErrorAction SilentlyContinue) {
@@ -17,6 +21,10 @@ elseif (Get-Command python -ErrorAction SilentlyContinue) {
 }
 else {
     throw "没有找到 Python。请先安装 Python 3.11 或更高版本，并勾选 Add Python to PATH。"
+}
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Python 虚拟环境创建失败。"
 }
 
 if ($Development) {

@@ -1,0 +1,50 @@
+name: P1b Windows verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p1b-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-p1b:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout verified source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements-p1b.txt
+            requirements-poc.txt
+            requirements-windows.txt
+            requirements-windows-dev.txt
+
+      - name: Install Windows development environment
+        shell: powershell
+        run: .\scripts\setup_windows.ps1 -Development -PythonCommand python
+
+      - name: Run P1b offline regression
+        shell: powershell
+        run: |
+          .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider `
+            test_document_render.py `
+            test_macos_quicklook_render.py `
+            test_document_visual_review.py `
+            test_document_family_calibration.py `
+            test_p1b_cli.py `
+            test_p1b_batch.py `
+            test_document_preflight.py `
+            test_document_families.py
