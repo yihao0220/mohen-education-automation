@@ -50,4 +50,7 @@ jobs:
             test_document_families.py `
             test_windows_scripts.py `
             test_future_biology_question_input.py `
-            test_future_biology_answer_trim.py
+            test_future_biology_answer_trim.py `
+            test_future_biology_answer_clean.py `
+            test_future_biology_answer_package.py `
+            test_review_gate_portability.py

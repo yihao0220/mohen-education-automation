@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
+
+
+SIGNATURE_VERSION = 2
 
 
 def derive_review_status_path(answer_doc_path: str | Path) -> str:
@@ -11,17 +15,39 @@ def derive_review_status_path(answer_doc_path: str | Path) -> str:
 
 
 def _utc_now() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def _capture_file_signature(answer_doc_path: str | Path) -> dict:
     path = Path(answer_doc_path)
-    stat = path.stat()
+    before = path.stat()
+    digest = sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    after = path.stat()
+    if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+        raise RuntimeError("签名计算期间答案文件发生变化，请重试。")
     return {
-        "path": str(path.resolve()),
-        "size": stat.st_size,
-        "mtime_ns": stat.st_mtime_ns,
+        "version": SIGNATURE_VERSION,
+        "algorithm": "sha256",
+        "size": after.st_size,
+        "sha256": digest.hexdigest(),
     }
+
+
+def _signature_matches(stored_signature: dict, current_signature: dict) -> bool:
+    return bool(
+        stored_signature.get("version") == SIGNATURE_VERSION
+        and stored_signature.get("algorithm") == "sha256"
+        and stored_signature.get("size") == current_signature.get("size")
+        and stored_signature.get("sha256") == current_signature.get("sha256")
+    )
 
 
 def _read_status_file(status_path: Path) -> dict | None:
@@ -105,7 +131,15 @@ def get_review_gate_result(answer_doc_path: str | Path) -> dict:
         }
 
     stored_signature = status_payload.get("answer_signature") or {}
-    if stored_signature != current_signature:
+    if stored_signature.get("version") != SIGNATURE_VERSION:
+        return {
+            "allowed": False,
+            "status": "stale",
+            "reason": "审核状态使用旧版文件签名，无法安全验证跨机器文件，请重新清洗并自动检查。",
+            "status_path": str(status_path),
+        }
+
+    if not _signature_matches(stored_signature, current_signature):
         return {
             "allowed": False,
             "status": "stale",
