@@ -10,7 +10,9 @@
 |------|------|------|------|
 | 任务面板 | `main.py` | 稳定可用 | 自动配对题目 / 原始答案 / 已清洗答案 / 审核状态，并给出下一步动作 |
 | 题目录入 | `main.py` / `墨痕快刀/main.py` | 稳定可用 | 英语、理科、文科三核 + 学科覆盖层 |
+| 未来高二生物题目录入 | `future_biology` 覆盖层 | 离线开发完成；Windows WPS 待验证 | 顶层阿拉伯题号逐题 F1；保留题图、表格、公式与小问，排除结构标题和已确认装饰图片 |
 | 答案格式清洗 | `格式处理/main.py` | 稳定可用 | 多模板清洗，未来高二物理、未来高二历史与安乡金海初二数学模板已接入 |
+| 未来高二生物答案截取 | `tools/trim_future_biology_answers.py` | 稳定可用 | 以“课时对点练”图片字段或可见文字为唯一边界，保留其后的答案内容，不覆盖原答案 |
 | 答案录入 | `答案录入/answer_input.py` | 稳定可用 | F2/F3/F4 自动录入，依赖审核状态文件 |
 | DOCX 只读预检 | `tools/build_document_preflight.py` | PoC + P0 可用 | 生成 Profile 1.1、题内角色证据、Docling 对照和 F1 预演计划；固定不连接 WPS、不执行按键 |
 | 文档族分析 | `tools/analyze_document_families.py` | P1a 可用 | 读取一批 Profile 1.1，生成候选文档族、代表样本、异常候选和人工复核队列；固定只作建议 |
@@ -104,6 +106,17 @@ python .\答案录入\answer_input.py
 ```
 
 它只生成外部 `DocumentProfile.json`、`ActionPlan.json` 及派生 Markdown。当前 `DocumentProfile` schema 为 1.1，包含文档标题、板块标题、题内小标题、题号、选项、正文等角色及其置信度和证据。JSON 是机器权威事实，Markdown 只供人工审核；角色层固定 `automatic_exclusion_enabled=false`，动作计划固定 `execution_enabled=false`，均不能直接驱动 WPS。
+
+未来高二生物题目使用 `理科 + future_biology` 覆盖层：每个顶层阿拉伯题号是一道 F1，`(1)(2)(3)` 不拆题；题干、选项、题图、原生表格和公式随题保留；试卷标题、分值说明、题组标题、选择题/非选择题标题、章节横幅、“对点训练”和“综合强化”不录入。当前已只读审计 52 份、764 道题，结构标题和已确认装饰媒体污染均为 0；Mac Quick Look 仅为开发预览，仍需 Windows WPS 核对最终 Range 和插件 F1。
+
+未来高二生物答案先按“课时对点练”边界截取。先预检，确认批次数量后再生成派生文档：
+
+```powershell
+.\.venv\Scripts\python.exe .\tools\trim_future_biology_answers.py "D:\...\未来-高二-生物" --dry-run --expected-source-count 73 --expected-matched-count 42
+.\.venv\Scripts\python.exe .\tools\trim_future_biology_answers.py "D:\...\未来-高二-生物" --expected-source-count 73 --expected-matched-count 42
+```
+
+脚本只扫描 `选必一答案`、`选必二答案`，排除 WPS 锁文件；命中图片字段或可见文字标记的文档输出到 `答案/按课时截取/`，没有标记的其他文档族跳过。标记重复、位于表格、同行出现未知内容或标记后缺少答案/解析时，整批停止，不覆盖原答案。
 
 已经生成一批 Profile 1.1 后，可以继续运行 P1a 只读文档族分析：
 
@@ -254,7 +267,7 @@ Windows 生产机运行同一入口，`auto` 会改用 WPS COM：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider .\test_document_preflight.py .\test_document_families.py
-.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider .\test_document_render.py .\test_macos_quicklook_render.py .\test_document_visual_review.py .\test_document_family_calibration.py .\test_p1b_cli.py .\test_p1b_batch.py .\test_windows_scripts.py
+.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider .\test_document_render.py .\test_macos_quicklook_render.py .\test_document_visual_review.py .\test_document_family_calibration.py .\test_p1b_cli.py .\test_p1b_batch.py .\test_windows_scripts.py .\test_future_biology_question_input.py .\test_future_biology_answer_trim.py
 python -m pytest -q .\test_future_physics_workflow.py -k "AnswerInput"
 python -m pytest -q .\test_future_history_workflow.py
 python -m pytest -q .\test_zhongmei_chinese_workflow.py

@@ -100,6 +100,8 @@ class SubjectOverlay:
     group_leading_context_questions: bool = False
     leading_context_group_boundary_patterns: tuple[str, ...] = ()
     question_input_excluded_patterns: tuple[str, ...] = ()
+    excluded_media_sha256_by_role: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    inferred_inter_question_media_role: str | None = None
     warning_details: dict[str, str] = field(default_factory=dict)
 
     def matches(self, doc_name: str, sample_text: str = "", base_subject: str | None = None) -> bool:
@@ -284,11 +286,58 @@ QINGYAN_MATH_OVERLAY = SubjectOverlay(
 )
 
 
+FUTURE_BIOLOGY_STRUCTURE_PATTERNS = (
+    r"^\s*题组[一二三四五六七八九十\d]+(?:\s|　|[：:]).*$",
+    r"^\s*[一二三四五六七八九十]+[、．.]\s*(?:选择题|非选择题)(?:\s*[（(].*)?$",
+)
+
+
+FUTURE_BIOLOGY_OVERLAY = SubjectOverlay(
+    name="future_biology",
+    base_subject="理科",
+    required_doc_name_keywords=("作业", "检测试卷"),
+    content_keywords=(
+        "细胞",
+        "内环境",
+        "稳态",
+        "神经",
+        "反射",
+        "兴奋",
+        "激素",
+        "免疫",
+        "生长素",
+        "植物",
+        "种群",
+        "群落",
+        "生态",
+        "生物",
+        "酵母菌",
+        "食物链",
+        "能量流动",
+    ),
+    min_keyword_hits=1,
+    ignored_question_start_patterns=FUTURE_BIOLOGY_STRUCTURE_PATTERNS,
+    span_boundary_patterns=FUTURE_BIOLOGY_STRUCTURE_PATTERNS,
+    excluded_media_sha256_by_role={
+        "document_banner": (
+            "363013449da1db958e2f66f789d87f7eede936259833c21c1b645b8dc3953e71",
+        ),
+        "exercise_label": (
+            "f379746c07eb677523e68d9032053391d5982b4b933addfbe5a29de84d6d62de",
+            "8c22c23eb8612cae71029cd75df419b262b028da00d66be51a0829c22004773a",
+            "169289e4b5356a198f95facc3778da4e755b303d99f3b6155332099d69ed9de5",
+        ),
+    },
+    inferred_inter_question_media_role="exercise_label",
+)
+
+
 REGISTERED_OVERLAYS: tuple[SubjectOverlay, ...] = (
     ZHONGMEI_CHINESE_OVERLAY,
     HISTORY_OVERLAY,
     GEOGRAPHY_OVERLAY,
     QINGYAN_MATH_OVERLAY,
+    FUTURE_BIOLOGY_OVERLAY,
 )
 
 
@@ -332,6 +381,40 @@ def should_skip_question_start_for_context(text: str, overlay_name: str | None =
 def is_question_span_boundary_for_context(text: str, overlay_name: str | None = None) -> bool:
     overlay = get_subject_overlay(overlay_name)
     return bool(overlay and overlay.matches_any(overlay.span_boundary_patterns, (text or "").strip()))
+
+
+def classify_media_hashes_for_context(
+    media_sha256: list[str] | tuple[str, ...],
+    overlay_name: str | None = None,
+) -> str | None:
+    """按项目覆盖层中已人工确认的图片哈希返回排除角色。"""
+    overlay = get_subject_overlay(overlay_name)
+    if not overlay or not media_sha256:
+        return None
+    observed = set(media_sha256)
+    for role, known_hashes in overlay.excluded_media_sha256_by_role.items():
+        if observed.intersection(known_hashes):
+            return role
+    return None
+
+
+def classify_inter_question_media_boundary_for_context(
+    current_text: str,
+    next_text: str,
+    obstacle_type: str | None,
+    overlay_name: str | None = None,
+) -> str | None:
+    """识别 WPS 中位于两道顶层题之间的已知装饰图片区。"""
+    overlay = get_subject_overlay(overlay_name)
+    if not overlay or not overlay.inferred_inter_question_media_role:
+        return None
+    if (current_text or "").strip():
+        return None
+    if "DecorativeHeader" not in str(obstacle_type or ""):
+        return None
+    if not re.match(r"^\s*\d+\s*[．.、]", next_text or ""):
+        return None
+    return overlay.inferred_inter_question_media_role
 
 
 def is_question_input_excluded_for_context(

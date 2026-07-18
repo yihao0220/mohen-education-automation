@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from docx.oxml.ns import qn
 
 from .models import DocNode, QuestionUnit
 from .subject_overlay import (
+    classify_media_hashes_for_context,
     choose_strategy_for_context,
     detect_subject_overlay,
     get_subject_overlay,
@@ -122,6 +124,29 @@ def _resolve_unit_question_id(
 
 
 def scan_docx_nodes(docx_path: str | Path) -> list[DocNode]:
+    def paragraph_media_sha256(para) -> list[str]:
+        relationship_ids: list[str] = []
+        for blip in para._p.iter(qn("a:blip")):
+            relationship_id = blip.get(qn("r:embed"))
+            if relationship_id and relationship_id not in relationship_ids:
+                relationship_ids.append(relationship_id)
+        for image_data in para._p.iter("{urn:schemas-microsoft-com:vml}imagedata"):
+            relationship_id = image_data.get(qn("r:id"))
+            if relationship_id and relationship_id not in relationship_ids:
+                relationship_ids.append(relationship_id)
+
+        hashes: list[str] = []
+        for relationship_id in relationship_ids:
+            relationship = doc.part.rels.get(relationship_id)
+            target_part = getattr(relationship, "target_part", None)
+            blob = getattr(target_part, "blob", None)
+            if not blob:
+                continue
+            digest = hashlib.sha256(blob).hexdigest()
+            if digest not in hashes:
+                hashes.append(digest)
+        return hashes
+
     def split_embedded_question_segments(text: str) -> list[str]:
         cleaned = (text or "").strip()
         if not cleaned:
@@ -175,6 +200,7 @@ def scan_docx_nodes(docx_path: str | Path) -> list[DocNode]:
     subquestion_number = 0
     for idx, para in enumerate(doc.paragraphs, 1):
         xml = para._p.xml
+        media_sha256 = paragraph_media_sha256(para)
         paragraph_text = para.text or ""
         explicit_match = re.match(r"^\s*(\d+)\s*[．.、]", paragraph_text)
         if explicit_match:
@@ -216,11 +242,28 @@ def scan_docx_nodes(docx_path: str | Path) -> list[DocNode]:
                     has_inline_media=segment_index == 0 and ("<wp:inline" in xml or "<w:drawing" in xml),
                     has_anchor_media=segment_index == 0 and "<wp:anchor" in xml,
                     page_break_before=segment_index == 0 and ("w:lastRenderedPageBreak" in xml or 'w:type="page"' in xml),
-                    metadata={"source_paragraph_index": idx},
+                    metadata={
+                        "source_paragraph_index": idx,
+                        "media_sha256": media_sha256 if segment_index == 0 else [],
+                    },
                 )
             )
             virtual_index += 1
     return nodes
+
+
+def _is_node_span_boundary_for_context(
+    node: DocNode,
+    overlay_name: str | None,
+) -> bool:
+    if is_question_span_boundary_for_context(node.text, overlay_name):
+        return True
+    return bool(
+        classify_media_hashes_for_context(
+            node.metadata.get("media_sha256", []),
+            overlay_name,
+        )
+    )
 
 
 def scan_wps_nodes(doc, start_p: int, end_p: int) -> list[DocNode]:
@@ -526,13 +569,13 @@ def build_question_units_from_wps_spans(
         if q_node.get("group_all_questions"):
             while end_idx >= boundary_start_idx:
                 node = nodes_by_index.get(end_idx)
-                if not node or not is_question_span_boundary_for_context(node.text, overlay_name):
+                if not node or not _is_node_span_boundary_for_context(node, overlay_name):
                     break
                 end_idx -= 1
         else:
             for boundary_idx in range(boundary_start_idx, end_idx + 1):
                 node = nodes_by_index.get(boundary_idx)
-                if node and is_question_span_boundary_for_context(node.text, overlay_name):
+                if node and _is_node_span_boundary_for_context(node, overlay_name):
                     end_idx = boundary_idx - 1
                     break
 
@@ -549,7 +592,7 @@ def build_question_units_from_wps_spans(
                 node = nodes_by_index.get(candidate_idx)
                 if not node:
                     continue
-                if is_question_span_boundary_for_context(node.text, overlay_name):
+                if _is_node_span_boundary_for_context(node, overlay_name):
                     break
                 if (node.text or "").strip() or node.has_media:
                     content_start_idx = candidate_idx
@@ -600,12 +643,13 @@ def build_question_units_from_docx(docx_path: str | Path, grade_hint: str | None
     doc_name = Path(docx_path).name
     sample_text = " ".join(node.text for node in nodes[:20])
     overlay_name = detect_subject_overlay(doc_name, sample_text, base_subject="文科")
+    if overlay_name is None:
+        overlay_name = detect_subject_overlay(doc_name, sample_text, base_subject="理科")
     if overlay_name:
         overlay = get_subject_overlay(overlay_name)
-        subject_name = overlay.base_subject if overlay else "文科"
+        subject_name = overlay.base_subject if overlay else choose_strategy(doc_name, sample_text).name
     else:
-        strategy = choose_strategy(doc_name, sample_text)
-        subject_name = strategy.name
+        subject_name = choose_strategy(doc_name, sample_text).name
     return build_question_units_from_nodes(
         doc_name,
         subject_name,

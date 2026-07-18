@@ -24,6 +24,8 @@ from .review_gate import (
 from .document_preflight import build_preflight_bundle, write_preflight_artifacts
 from .strategies import BaseStrategy, choose_strategy
 from .subject_overlay import (
+    classify_inter_question_media_boundary_for_context,
+    classify_media_hashes_for_context,
     detect_subject_overlay,
     get_subject_overlay,
     is_numbered_intro_for_context,
@@ -53,6 +55,8 @@ __all__ = [
     "build_review_report",
     "build_preflight_bundle",
     "choose_strategy",
+    "classify_inter_question_media_boundary_for_context",
+    "classify_media_hashes_for_context",
     "detect_subject_overlay",
     "export_review_report",
     "format_question_warning_details",

@@ -15,6 +15,7 @@ if PROJECT_ROOT not in sys.path:
 from shared_core import (
     build_question_units_from_wps,
     build_question_units_from_wps_spans,
+    classify_inter_question_media_boundary_for_context,
     detect_subject_overlay,
     format_question_warning_details,
     is_numbered_intro_for_context,
@@ -783,6 +784,25 @@ def process_chapter(section_info):
                 # 唯一需要我们提前刹车的，只有那些垃圾干扰项（如"建议用时"、"页码"等）
                 is_obs, obs_type = is_obstacle(rng)
                 if is_obs:
+                    next_text = ""
+                    if p_idx < real_end:
+                        try:
+                            next_text = paras(p_idx + 1).Range.Text.strip()
+                        except Exception:
+                            next_text = ""
+                    excluded_media_role = classify_inter_question_media_boundary_for_context(
+                        current_text=text,
+                        next_text=next_text,
+                        obstacle_type=obs_type,
+                        overlay_name=overlay_name,
+                    )
+                    if excluded_media_role:
+                        logger.log(
+                            f"      ✂️ [媒体边界] 行{p_idx} [{node_type}] "
+                            f"排除题间装饰图片 ({excluded_media_role})"
+                        )
+                        real_end = p_idx - 1
+                        break
                     if should_ignore_inline_obstacle(unit, text, obs_type):
                         ignored_kind = describe_ignored_inline_obstacle(
                             text,

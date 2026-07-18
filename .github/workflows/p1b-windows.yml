@@ -36,7 +36,7 @@ jobs:
         shell: powershell
         run: .\scripts\setup_windows.ps1 -Development -PythonCommand python
 
-      - name: Run P1b offline regression
+      - name: Run Windows offline regression
         shell: powershell
         run: |
           .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider `
@@ -48,4 +48,6 @@ jobs:
             test_p1b_batch.py `
             test_document_preflight.py `
             test_document_families.py `
-            test_windows_scripts.py
+            test_windows_scripts.py `
+            test_future_biology_question_input.py `
+            test_future_biology_answer_trim.py
