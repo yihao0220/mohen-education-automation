@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from hashlib import sha256
+import importlib.util
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import sys
+import types
 from zipfile import ZipFile
 
 from docx import Document
@@ -75,6 +78,123 @@ def _document_media_reference_count(path: Path) -> int:
     with ZipFile(path) as package:
         document_xml = package.read("word/document.xml")
     return document_xml.count(b"r:embed=") + document_xml.count(b"r:id=")
+
+
+def _load_answer_input_module(monkeypatch):
+    monkeypatch.setitem(
+        sys.modules,
+        "pyautogui",
+        types.SimpleNamespace(press=lambda _key: None),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "wps_helper",
+        types.SimpleNamespace(get_active_wps=lambda: None),
+    )
+    module_path = Path(__file__).resolve().parent / "答案录入" / "answer_input.py"
+    spec = importlib.util.spec_from_file_location(
+        "future_biology_answer_input_under_test",
+        module_path,
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, module)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_inline_biology_subanswers_trigger_one_f4_per_subquestion(monkeypatch) -> None:
+    answer_input = _load_answer_input_module(monkeypatch)
+    paragraphs = [
+        "15．",
+        "答案：(1)内环境　血浆　组织液　淋巴液　"
+        "(2)消化系统　泌尿系统　(3)消化　循环　(4)A　HCO、H2CO3",
+        "解析： ",
+    ]
+    document_text = "".join(f"{text}\r" for text in paragraphs)
+    paragraph_spans = []
+    cursor = 0
+    for text in paragraphs:
+        end = cursor + len(text) + 1
+        paragraph_spans.append((cursor, end))
+        cursor = end
+
+    selected = {"text": ""}
+    events: list[tuple[str, str]] = []
+
+    class FakeRange:
+        def __init__(self, start: int, end: int):
+            self.Start = start
+            self.End = end
+
+        @property
+        def Text(self) -> str:
+            return document_text[self.Start : self.End]
+
+        def Select(self) -> None:
+            selected["text"] = self.Text
+
+    class FakeParagraph:
+        def __init__(self, index: int):
+            self.Range = FakeRange(*paragraph_spans[index - 1])
+
+    class FakeParagraphs:
+        Count = len(paragraphs)
+
+        def __call__(self, index: int):
+            return FakeParagraph(index)
+
+    class FakeDocument:
+        Paragraphs = FakeParagraphs()
+        FullName = r"D:\墨痕教育题目\未来-高二-生物\答案\样例_已清洗.docx"
+        Name = "样例_已清洗.docx"
+
+        @staticmethod
+        def Range(start: int, end: int):
+            return FakeRange(start, end)
+
+    class FakeWindow:
+        @staticmethod
+        def ScrollIntoView(_range) -> None:
+            return None
+
+    class FakeApplication:
+        ActiveWindow = FakeWindow()
+
+    class FakeWps:
+        Application = FakeApplication()
+
+    monkeypatch.setattr(
+        answer_input.pyautogui,
+        "press",
+        lambda key: events.append((key, selected["text"])),
+    )
+    monkeypatch.setattr(answer_input.time, "sleep", lambda _seconds: None)
+
+    answer_input.execute_input(
+        FakeDocument(),
+        FakeWps(),
+        [
+            {
+                "qnum": "15",
+                "ans_start_p": 2,
+                "ana_start_p": 3,
+                "end_p": 3,
+                "answer_mode": "subquestion",
+                "force_whole_answer_input": False,
+            }
+        ],
+        0,
+        1,
+    )
+
+    assert [key for key, _text in events] == ["f4", "f4", "f4", "f4", "f3"]
+    assert [text.strip() for _key, text in events[:4]] == [
+        "内环境　血浆　组织液　淋巴液",
+        "消化系统　泌尿系统",
+        "消化　循环",
+        "A　HCO、H2CO3",
+    ]
 
 
 def test_clean_document_removes_questions_and_preserves_answer_media(tmp_path: Path) -> None:

@@ -465,16 +465,20 @@ def find_subquestion_matches(text_body):
     line_matches = _sequential_subquestion_matches(
         list(line_start_pattern.finditer(text_body))
     )
-    if line_matches:
+    if len(line_matches) >= 2:
         return line_matches
 
     inline_matches = list(re.finditer(marker_pattern, text_body))
     if not inline_matches:
-        return []
+        return line_matches
     first_content_pos = len(text_body) - len(text_body.lstrip())
     if inline_matches[0].start() != first_content_pos:
-        return []
-    return _sequential_subquestion_matches(inline_matches)
+        return line_matches
+
+    sequential_inline_matches = _sequential_subquestion_matches(inline_matches)
+    if len(sequential_inline_matches) > len(line_matches):
+        return sequential_inline_matches
+    return line_matches
 
 
 def strip_input_question_prefix(answer_text):
