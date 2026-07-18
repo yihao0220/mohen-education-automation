@@ -1,0 +1,91 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*$py.class
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# Local editor / agent state
+.vscode/
+.qoder/
+.sisyphus/
+
+# Secrets, credentials and local runtime state
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*
+*secret*
+*token*
+*session*
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# Windows reserved name accidentally created by dir redirect
+nul
+
+# Office / WPS lock files
+~$*.doc
+~$*.docx
+
+# Source documents and rendered media never enter Git
+*.doc
+*.docx
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+
+# Per-machine workspace paths
+工作台路径配置.json
+
+# Historical one-off prompt containing source exercise text
+task_instruction.md
+
+# Local sample inputs
+墨痕快刀/待录入文档/
+格式处理/待清洗文件/
+格式处理/原格式/
+
+# Generated outputs
+*_已清洗.docx
+*_标准化.docx
+*_审核清单.md
+**/test_output.docx
+**/转换后格式.docx
+**/PageRenderManifest.json
+**/PageRenderManifest.md
+**/VisualReview.json
+**/VisualReview.md
+**/P1bCalibrationReport.json
+**/P1bCalibrationReport.md
+**/WpsReadonlyBatch.json
+
+# Real document-derived regression facts stay local
+回归样本/样本清单.json
+回归样本/预检基线/
+回归样本/文档族分析/

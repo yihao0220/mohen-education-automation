@@ -1,0 +1,6 @@
+{
+    "extraPaths": [
+        "core",
+        "modules"
+    ]
+}

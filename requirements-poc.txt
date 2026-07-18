@@ -1,0 +1,4 @@
+# 只读文档画像 PoC；不作为现有 WPS 主入口的强制依赖。
+docling==2.113.0
+pytest==9.1.1
+pytest-regressions==2.11.0

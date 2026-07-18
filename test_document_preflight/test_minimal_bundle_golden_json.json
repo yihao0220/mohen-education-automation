@@ -1,0 +1,270 @@
+{
+  "profile": {
+    "schema_version": "1.1",
+    "generator": "mohen-document-preflight-poc",
+    "source": {
+      "name": "数学练习.docx",
+      "path": "<SOURCE>",
+      "size_bytes": "<SIZE>",
+      "sha256": "<SHA256>",
+      "readonly_input": true,
+      "hash_verified_unchanged": true
+    },
+    "native": {
+      "paragraph_count": 6,
+      "nonempty_paragraph_count": 6,
+      "table_count": 1,
+      "inline_shape_count": 0,
+      "drawing_count": 0,
+      "vml_count": 0,
+      "formula_count": 0,
+      "heading_count": 1,
+      "heading_candidates": [
+        {
+          "paragraph_index": 1,
+          "style": "Heading 1",
+          "text": "数学练习"
+        }
+      ],
+      "table_anchors": [
+        {
+          "table_index": 1,
+          "body_index": 3,
+          "paragraph_before": 2,
+          "paragraph_after": 3,
+          "row_count": 2,
+          "column_count": 2
+        }
+      ],
+      "media_paragraphs": [],
+      "formula_paragraphs": []
+    },
+    "docling": {
+      "enabled": false,
+      "available": true,
+      "package_version": "2.113.0",
+      "status": "skipped"
+    },
+    "roles": {
+      "schema_version": "1.0",
+      "status": "success",
+      "role_counts": {
+        "body": 1,
+        "document_title": 1,
+        "option": 2,
+        "question_start": 2
+      },
+      "paragraphs": [
+        {
+          "paragraph_index": 1,
+          "role": "document_title",
+          "confidence": 0.85,
+          "score": 6,
+          "evidence": [
+            "首个非空段落",
+            "首段Heading/标题样式",
+            "短段落"
+          ],
+          "text": "数学练习",
+          "style": "Heading 1",
+          "direct_bold_ratio": 0.0,
+          "max_font_size_pt": null,
+          "docling_label": null
+        },
+        {
+          "paragraph_index": 2,
+          "role": "question_start",
+          "confidence": 0.99,
+          "score": 100,
+          "evidence": [
+            "明确题号模式"
+          ],
+          "text": "1．观察下表，选择正确答案。",
+          "style": "Normal",
+          "direct_bold_ratio": 0.0,
+          "max_font_size_pt": null,
+          "docling_label": null
+        },
+        {
+          "paragraph_index": 3,
+          "role": "option",
+          "confidence": 0.99,
+          "score": 100,
+          "evidence": [
+            "明确选项前缀"
+          ],
+          "text": "A．2元",
+          "style": "Normal",
+          "direct_bold_ratio": 0.0,
+          "max_font_size_pt": null,
+          "docling_label": null
+        },
+        {
+          "paragraph_index": 4,
+          "role": "option",
+          "confidence": 0.99,
+          "score": 100,
+          "evidence": [
+            "明确选项前缀"
+          ],
+          "text": "B．4元",
+          "style": "Normal",
+          "direct_bold_ratio": 0.0,
+          "max_font_size_pt": null,
+          "docling_label": null
+        },
+        {
+          "paragraph_index": 5,
+          "role": "question_start",
+          "confidence": 0.99,
+          "score": 100,
+          "evidence": [
+            "明确题号模式"
+          ],
+          "text": "2．直接写出结果。",
+          "style": "Normal",
+          "direct_bold_ratio": 0.0,
+          "max_font_size_pt": null,
+          "docling_label": null
+        },
+        {
+          "paragraph_index": 6,
+          "role": "body",
+          "confidence": 0.7,
+          "score": 0,
+          "evidence": [
+            "未达到标题角色阈值"
+          ],
+          "text": "3+4=____",
+          "style": "Normal",
+          "direct_bold_ratio": 0.0,
+          "max_font_size_pt": null,
+          "docling_label": null
+        }
+      ],
+      "heading_candidates": [
+        {
+          "paragraph_index": 1,
+          "role": "document_title",
+          "confidence": 0.85,
+          "score": 6,
+          "evidence": [
+            "首个非空段落",
+            "首段Heading/标题样式",
+            "短段落"
+          ],
+          "text": "数学练习",
+          "style": "Heading 1",
+          "direct_bold_ratio": 0.0,
+          "max_font_size_pt": null,
+          "docling_label": null
+        }
+      ],
+      "internal_heading_candidates": [],
+      "docling_alignment": {
+        "source_count": 0,
+        "aligned_count": 0,
+        "unaligned_count": 0
+      },
+      "automatic_exclusion_enabled": false
+    },
+    "comparison": {
+      "paragraphs_vs_docling_texts": [
+        6,
+        null
+      ],
+      "native_vs_docling_tables": [
+        1,
+        null
+      ],
+      "native_media_vs_docling_pictures": [
+        0,
+        null
+      ]
+    },
+    "fingerprint": {
+      "paragraph_count": 6,
+      "nonempty_paragraph_count": 6,
+      "table_count": 1,
+      "media_node_count": 0,
+      "formula_count": 0,
+      "heading_count": 1,
+      "question_action_count": 2,
+      "role_counts": {
+        "body": 1,
+        "document_title": 1,
+        "option": 2,
+        "question_start": 2
+      }
+    },
+    "issues": []
+  },
+  "plan": {
+    "schema_version": "1.0",
+    "generator": "mohen-document-preflight-poc",
+    "source_name": "数学练习.docx",
+    "source_sha256": "<SHA256>",
+    "profile_schema_version": "1.1",
+    "execution_enabled": false,
+    "mode": "preview_only",
+    "actions": [
+      {
+        "sequence": 1,
+        "action": "question_input_preview",
+        "key": "F1",
+        "question_ids": [
+          "1"
+        ],
+        "question_type": "choice",
+        "node_type": "STD",
+        "subject": "理科",
+        "subject_overlay": null,
+        "preview": "1．观察下表，选择正确答案。",
+        "confidence": 1.0,
+        "warnings": [],
+        "source_ref": {
+          "virtual_node_start": 2,
+          "virtual_node_end": 4,
+          "paragraph_start": 2,
+          "paragraph_end": 4,
+          "table_indexes": [
+            1
+          ],
+          "media_paragraphs": [],
+          "formula_paragraphs": []
+        }
+      },
+      {
+        "sequence": 2,
+        "action": "question_input_preview",
+        "key": "F1",
+        "question_ids": [
+          "2"
+        ],
+        "question_type": "fill_blank",
+        "node_type": "STD",
+        "subject": "理科",
+        "subject_overlay": null,
+        "preview": "2．直接写出结果。 3+4=____",
+        "confidence": 1.0,
+        "warnings": [],
+        "source_ref": {
+          "virtual_node_start": 5,
+          "virtual_node_end": 6,
+          "paragraph_start": 5,
+          "paragraph_end": 6,
+          "table_indexes": [],
+          "media_paragraphs": [],
+          "formula_paragraphs": []
+        }
+      }
+    ],
+    "blocking_issues": [
+      {
+        "code": "POC_WPS_EXECUTION_DISABLED",
+        "severity": "blocker",
+        "message": "PoC 尚未绑定 WPS Range，仅生成预检动作，不允许执行按键。"
+      }
+    ]
+  }
+}

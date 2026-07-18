@@ -1,0 +1,4 @@
+-r requirements-p1b.txt
+python-docx>=1.1,<2
+pyautogui>=0.9.54,<1
+pywin32>=306; platform_system == "Windows"
