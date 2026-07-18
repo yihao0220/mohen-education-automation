@@ -15,11 +15,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 
 def _run(*args: object) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "ascii:backslashreplace"
     return subprocess.run(
         [sys.executable, *(str(arg) for arg in args)],
         cwd=PROJECT_ROOT,
-        env=os.environ.copy(),
+        env=env,
         text=True,
+        encoding="utf-8",
         capture_output=True,
         timeout=60,
     )

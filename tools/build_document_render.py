@@ -13,6 +13,7 @@ from shared_core.document_render import (
     export_docx_to_pdf_with_wps,
     write_page_render_artifacts,
 )
+from shared_core.cli_output import configure_utf8_stdio
 from shared_core.macos_quicklook_render import export_docx_to_pdf_with_macos_quicklook
 
 
@@ -94,6 +95,7 @@ def _run(args: argparse.Namespace) -> dict[str, object]:
 
 
 def main() -> int:
+    configure_utf8_stdio()
     try:
         result = _run(parse_args())
     except Exception as exc:

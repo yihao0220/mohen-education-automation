@@ -9,6 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from shared_core.cli_output import configure_utf8_stdio
 from shared_core.p1b_batch import write_wps_readonly_batch
 
 
@@ -21,6 +22,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    configure_utf8_stdio()
     args = parse_args()
     try:
         path = write_wps_readonly_batch(
