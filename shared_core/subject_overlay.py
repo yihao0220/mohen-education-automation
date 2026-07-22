@@ -332,12 +332,43 @@ FUTURE_BIOLOGY_OVERLAY = SubjectOverlay(
 )
 
 
+GUANMEI_BIOLOGY_OVERLAY = SubjectOverlay(
+    name="guanmei_biology",
+    base_subject="理科",
+    required_doc_name_keywords=("细胞的生活环境-排版终稿",),
+    content_keywords=(
+        "细胞",
+        "内环境",
+        "稳态",
+        "血浆",
+        "组织液",
+        "淋巴液",
+        "神经",
+        "激素",
+        "免疫",
+        "生长素",
+        "种群",
+        "群落",
+        "生态",
+        "生物",
+    ),
+    min_keyword_hits=2,
+    excluded_media_sha256_by_role={
+        "exercise_label": (
+            "9cf693c46d970beea342457d6e13783cb9cc45c229f988a725f1f7e387f52463",
+        ),
+    },
+    inferred_inter_question_media_role="exercise_label",
+)
+
+
 REGISTERED_OVERLAYS: tuple[SubjectOverlay, ...] = (
     ZHONGMEI_CHINESE_OVERLAY,
     HISTORY_OVERLAY,
     GEOGRAPHY_OVERLAY,
     QINGYAN_MATH_OVERLAY,
     FUTURE_BIOLOGY_OVERLAY,
+    GUANMEI_BIOLOGY_OVERLAY,
 )
 
 
