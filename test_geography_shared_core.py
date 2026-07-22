@@ -125,7 +125,10 @@ class GeographySharedCoreTests(unittest.TestCase):
 
         units = build_answer_units_from_paragraph_texts(paragraphs)
 
-        self.assertEqual([unit.question_id for unit in units], ["1", "2", "12", "13"])
+        self.assertEqual(
+            [unit.question_id for unit in units],
+            ["1", "2", "12", "13．（1）"],
+        )
         self.assertEqual(units[2].answer_items[0].text, "D")
         self.assertNotIn("参考答案", units[2].answer_items[0].text)
 

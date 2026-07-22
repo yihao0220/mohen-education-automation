@@ -3,9 +3,7 @@ import re
 import time
 import os
 import sys
-import pyautogui
 import config
-from wps_helper import get_active_wps
 from debug_logger import logger  # ✨ 导入日志模块
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -299,6 +297,8 @@ def should_ignore_inline_obstacle(unit, text, obs_type):
         node_type = unit
         question_type = ""
         warnings = []
+        media_blocks = []
+        subquestions = []
     else:
         node_type = unit.node_type
         question_type = unit.question_type
@@ -411,6 +411,9 @@ def get_sections(doc):
     return sections
 
 def process_chapter(section_info):
+    import pyautogui
+    from wps_helper import get_active_wps
+
     wps = get_active_wps()
     if not wps: return
     try:

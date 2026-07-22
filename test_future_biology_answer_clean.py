@@ -165,7 +165,7 @@ def test_inline_biology_subanswers_trigger_one_f4_per_subquestion(monkeypatch) -
         Application = FakeApplication()
 
     monkeypatch.setattr(
-        answer_input.pyautogui,
+        sys.modules["pyautogui"],
         "press",
         lambda key: events.append((key, selected["text"])),
     )
