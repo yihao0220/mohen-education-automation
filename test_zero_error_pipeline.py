@@ -1,7 +1,7 @@
 import json
 import importlib.util
 import tempfile
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from docx import Document
 
@@ -309,7 +309,7 @@ def test_build_manifest_entry():
     controller_main = _load_controller_main()
 
     entry = controller_main.build_manifest_entry(
-        file_path=Path(r"E:\samples\高一地理限训4.docx"),
+        file_path=PureWindowsPath(r"E:\samples\高一地理限训4.docx"),
         sample_kind="question_doc",
         subject="地理",
         question_count=12,

@@ -20,6 +20,8 @@
 import re
 import os
 
+from . import matches_garbage_pattern, pattern_match_score, set_standard_font
+
 # 格式识别特征
 TEMPLATE_FEATURES = {
     "name": "虎鹰-四年级-语文",
@@ -69,11 +71,7 @@ MULTI_SUB_PATTERN = re.compile(r"[(（](\d+)[)）]([^（(]*?)(?=[(（]\d+[)）]|
 
 
 def is_garbage_line(text):
-    """判断是否是垃圾行"""
-    for pattern in GARBAGE_PATTERNS:
-        if re.match(pattern, text):
-            return True
-    return False
+    return matches_garbage_pattern(text, GARBAGE_PATTERNS)
 
 
 def is_section_title(text):
@@ -85,58 +83,11 @@ def is_section_title(text):
 
 
 def match_score(doc, cached_texts=None):
-    """
-    计算文档与此模板的匹配度
-
-    Args:
-        doc: WPS 文档对象
-
-    Returns:
-        float: 匹配分数 (0-1)
-    """
-    total_lines = 0
-    matched_lines = 0
-
-    texts = cached_texts if cached_texts is not None else [
-        p.Range.Text.strip() for p in doc.Paragraphs
-    ]
-
-    for text in texts:
-        if not text:
-            continue
-
-        total_lines += 1
-
-        for pattern in TEMPLATE_FEATURES["patterns"]:
-            if re.search(pattern, text):
-                matched_lines += 1
-                break
-
-    if total_lines == 0:
-        return 0
-
-    return matched_lines / total_lines
+    return pattern_match_score(doc, TEMPLATE_FEATURES["patterns"], cached_texts)
 
 
 def set_font_format(doc):
-    """
-    设置文档字体格式
-    - 小四（12号）
-    - 黑色
-    - 宋体（中文）/ Times New Roman（英文/数字）
-    - 不加粗
-    """
-    try:
-        font = doc.Content.Font
-        font.Size = 12
-        font.Color = 0
-        font.Name = "Times New Roman"
-        font.NameFarEast = "宋体"
-        font.Bold = False
-        font.Italic = False
-        print("   ✓ 字体格式设置完成：小四、黑色、宋体/Times New Roman、不加粗")
-    except Exception as e:
-        print(f"   ! 字体设置失败: {e}")
+    set_standard_font(doc)
 
 
 def scan_sections(doc):

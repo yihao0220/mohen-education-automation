@@ -13,14 +13,6 @@ BATCH_SCHEMA_VERSION = "1.0"
 FORMAL_DIRECTORIES = ("选必一活页", "选必二活页")
 
 
-def _is_inside(path: Path, directory: Path) -> bool:
-    try:
-        path.relative_to(directory)
-    except ValueError:
-        return False
-    return True
-
-
 def discover_formal_docx(
     batch_root: str | Path,
     *,
@@ -51,7 +43,7 @@ def prepare_wps_readonly_batch(
 ) -> dict[str, Any]:
     root = Path(batch_root).resolve()
     target = Path(output_dir).resolve()
-    if _is_inside(target, root):
+    if target.is_relative_to(root):
         raise ValueError("P1b 批次副本不能写入原题批次目录")
     sources = discover_formal_docx(root, formal_directories=formal_directories)
     if expected_count is not None and len(sources) != expected_count:

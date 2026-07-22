@@ -3,9 +3,8 @@ import sys
 import re
 import time
 import tempfile
-import pyautogui
 from dataclasses import replace
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from docx import Document
 
@@ -20,7 +19,6 @@ sys.path.append(
         "墨痕快刀",
     )
 )
-from wps_helper import get_active_wps
 from shared_core import (
     build_answer_units_from_docx,
     build_answer_units_from_wps,
@@ -30,6 +28,7 @@ from shared_core import (
     map_answers,
 )
 from shared_core.answer_core import infer_grouped_question_ids
+from shared_core.cli_output import configure_utf8_stdio
 
 # ----------------- 配置区 -----------------
 DEBUG_MODE = True
@@ -67,7 +66,9 @@ def derive_zhongmei_classical_cleaned_answer_path(
     active_doc_path: str | Path,
 ) -> Path | None:
     """把众美文言文原题路径映射到同层级的已清洗答案路径。"""
-    source_path = Path(active_doc_path)
+    raw_path = os.fspath(active_doc_path)
+    path_type = PureWindowsPath if re.match(r"^[A-Za-z]:\\", raw_path) else Path
+    source_path = path_type(raw_path)
     if source_path.suffix.lower() != ".docx" or source_path.stem.endswith("_已清洗"):
         return None
 
@@ -90,17 +91,18 @@ def derive_zhongmei_classical_cleaned_answer_path(
     ):
         return None
 
-    relative_path = Path(*parts[question_index + 1 :])
+    relative_path = path_type(*parts[question_index + 1 :])
     if not relative_path.name:
         return None
     cleaned_relative_path = relative_path.with_name(
         f"{source_path.stem}_已清洗.docx"
     )
-    project_root = Path(*parts[: project_index + 1])
-    return project_root.joinpath(
+    project_root = path_type(*parts[: project_index + 1])
+    mapped_path = project_root.joinpath(
         *ZHONGMEI_CLASSICAL_ANSWER_DIR,
         cleaned_relative_path,
     )
+    return Path(str(mapped_path))
 
 
 def _same_document_path(left: str | Path, right: str | Path) -> bool:
@@ -498,6 +500,8 @@ def execute_input(doc, wps, blocks, start_idx, end_idx):
     """
     逐题录入：每题先录答案(F2)，再录解析(F3)，完成后再进入下一题
     """
+    import pyautogui
+
     target_blocks = blocks[start_idx:end_idx]
     total = len(target_blocks)
 
@@ -680,9 +684,9 @@ def execute_input(doc, wps, blocks, start_idx, end_idx):
 
 
 def main():
-    import io
+    from wps_helper import get_active_wps
 
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    configure_utf8_stdio()
 
     print("========================================")
     print("      🔪 墨痕快刀 - 答案录入工具 (初版)")
