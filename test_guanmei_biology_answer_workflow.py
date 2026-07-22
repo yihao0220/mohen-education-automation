@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
+import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from zipfile import ZipFile
 
@@ -16,6 +19,30 @@ from tools.package_guanmei_biology_answers import package_guanmei_biology_answer
 from tools.refresh_guanmei_biology_review_status import (
     refresh_guanmei_biology_review_statuses,
 )
+
+
+def _load_answer_input_module():
+    sys.modules.setdefault(
+        "pyautogui",
+        SimpleNamespace(press=lambda *_args, **_kwargs: None),
+    )
+    sys.modules.setdefault(
+        "wps_helper",
+        SimpleNamespace(get_active_wps=lambda: None),
+    )
+    module_path = Path(__file__).resolve().parent / "答案录入" / "answer_input.py"
+    spec = importlib.util.spec_from_file_location(
+        "guanmei_biology_answer_input",
+        module_path,
+    )
+    if not spec or not spec.loader:
+        raise AssertionError(f"无法加载答案录入模块: {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+answer_input = _load_answer_input_module()
 
 
 class _MockRange:
@@ -132,6 +159,79 @@ class GuanmeiBiologyAnswerWorkflowTest(unittest.TestCase):
         )
         self.assertEqual(units[0].answer_span, (1, 2))
         self.assertEqual(units[0].analysis_span, (3, 3))
+
+    def test_execution_strips_compact_choice_question_number(self) -> None:
+        offset, text_body = answer_input.strip_input_question_prefix("1B\r")
+
+        self.assertEqual(offset, 1)
+        self.assertEqual(text_body, "B\r")
+        self.assertEqual(answer_input.find_subquestion_matches(text_body), [])
+
+    def test_execution_preserves_inline_subquestion_one(self) -> None:
+        answer_text = "13．（1）甲（2）乙（3）丙\r"
+        offset, text_body = answer_input.strip_input_question_prefix(answer_text)
+        matches = answer_input.find_subquestion_matches(text_body)
+
+        self.assertEqual(offset, len("13．"))
+        self.assertTrue(text_body.startswith("（1）"))
+        self.assertEqual(
+            [match.group(1) for match in matches],
+            ["（1）", "（2）", "（3）"],
+        )
+
+    def test_execution_collects_inline_third_subquestion_after_line_two(self) -> None:
+        answer_text = "12．（1）甲\r（2）乙　（3）丙\r"
+        _, text_body = answer_input.strip_input_question_prefix(answer_text)
+        matches = answer_input.find_subquestion_matches(text_body)
+
+        self.assertEqual(
+            [match.group(1) for match in matches],
+            ["（1）", "（2）", "（3）"],
+        )
+
+    def test_execution_ignores_parenthesized_reference_inside_subanswer(self) -> None:
+        answer_text = (
+            "12．\r(1)第一小问答案中引用第(9)段。"
+            "\r(2)第二小问答案。"
+            "\r(3)第三小问答案。"
+        )
+        _, text_body = answer_input.strip_input_question_prefix(answer_text)
+        matches = answer_input.find_subquestion_matches(text_body)
+
+        self.assertEqual(
+            [match.group(1) for match in matches],
+            ["(1)", "(2)", "(3)"],
+        )
+
+    def test_execution_keeps_single_subquestion_and_physics_policies(self) -> None:
+        _, text_body = answer_input.strip_input_question_prefix(
+            "20．\r(1)单个翻译小问\r"
+        )
+        matches = answer_input.find_subquestion_matches(text_body)
+        block = {
+            "answer_mode": "subquestion",
+            "force_whole_answer_input": False,
+        }
+
+        self.assertEqual([match.group(1) for match in matches], ["(1)"])
+        self.assertTrue(answer_input.should_split_subquestion_answers(_MockDoc([]), block))
+
+        physics_doc = SimpleNamespace(
+            FullName=(
+                "D:/墨痕教育题目/未来-高二-物理/答案/"
+                "样例_已清洗.docx"
+            ),
+            Name="样例_已清洗.docx",
+        )
+        self.assertFalse(
+            answer_input.should_split_subquestion_answers(physics_doc, block)
+        )
+
+    def test_execution_keeps_circled_points_in_one_answer(self) -> None:
+        self.assertEqual(
+            answer_input.find_subquestion_matches("①要点一②要点二③要点三"),
+            [],
+        )
 
     def test_review_status_and_windows_package_remain_portable(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:

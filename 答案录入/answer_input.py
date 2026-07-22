@@ -43,6 +43,16 @@ ZHONGMEI_CLASSICAL_ANSWER_DIR = ("答案", "文言文答案")
 INPUT_QUESTION_PREFIX_PATTERN = re.compile(
     r"^[ \t]*\d+[．.][ \t]*(?:[（(][ \t]*\d+[ \t]*[）)][ \t]*)?"
 )
+SUBQUESTION_MARKER_GAP_PATTERN = r"[ \t\u00a0\u3000\u200b\ufeff\u2060]*"
+SUBQUESTION_MARKER_TEXT_PATTERN = (
+    rf"[（(]{SUBQUESTION_MARKER_GAP_PATTERN}"
+    rf"\d+{SUBQUESTION_MARKER_GAP_PATTERN}[）)]"
+)
+SUBQUESTION_MARKER_FULL_PATTERN = re.compile(
+    rf"[（(]{SUBQUESTION_MARKER_GAP_PATTERN}"
+    rf"(\d+){SUBQUESTION_MARKER_GAP_PATTERN}[）)]"
+)
+INPUT_IGNORABLE_CHARS = " \t\r\n\u00a0\u3000\u200b\ufeff\u2060"
 
 # ------------------------------------------
 def debug_log(msg):
@@ -441,7 +451,7 @@ def execute_input_from_units(doc, wps, units, start_idx, end_idx, strict=True):
 
 
 def _subquestion_marker_number(marker):
-    bracket_match = re.fullmatch(r"[（(](\d+)[）)]", marker or "")
+    bracket_match = SUBQUESTION_MARKER_FULL_PATTERN.fullmatch(marker or "")
     if bracket_match:
         return int(bracket_match.group(1))
     return None
@@ -453,25 +463,33 @@ def _sequential_subquestion_matches(matches):
     numbers = [_subquestion_marker_number(match.group(1)) for match in matches]
     if numbers != list(range(1, len(numbers) + 1)):
         return []
-    return matches if all(re.fullmatch(r"[（(]\d+[）)]", match.group(1)) for match in matches) else []
+    return (
+        matches
+        if all(
+            SUBQUESTION_MARKER_FULL_PATTERN.fullmatch(match.group(1))
+            for match in matches
+        )
+        else []
+    )
 
 
 def find_subquestion_matches(text_body):
     """只识别括号数字小问；①②等圆圈序号属于整题答案内部列点。"""
-    marker_pattern = r"([\(（]\d+[\)）])"
+    text_body = text_body or ""
+    marker_pattern = rf"({SUBQUESTION_MARKER_TEXT_PATTERN})"
     line_start_pattern = re.compile(
-        rf"(?:(?<=\r)|(?<=\n)|\A)[ \t]*{marker_pattern}[ \t]*"
+        rf"(?:(?<=\r)|(?<=\n)|\A)"
+        rf"{SUBQUESTION_MARKER_GAP_PATTERN}{marker_pattern}"
+        rf"{SUBQUESTION_MARKER_GAP_PATTERN}"
     )
     line_matches = _sequential_subquestion_matches(
         list(line_start_pattern.finditer(text_body))
     )
-    if len(line_matches) >= 2:
-        return line_matches
 
     inline_matches = list(re.finditer(marker_pattern, text_body))
     if not inline_matches:
         return line_matches
-    first_content_pos = len(text_body) - len(text_body.lstrip())
+    first_content_pos = len(text_body) - len(text_body.lstrip(INPUT_IGNORABLE_CHARS))
     if inline_matches[0].start() != first_content_pos:
         return line_matches
 
@@ -482,10 +500,33 @@ def find_subquestion_matches(text_body):
 
 
 def strip_input_question_prefix(answer_text):
-    """剥离顶层题号；跨段出现的 (1) 必须保留给 F4 拆分。"""
-    question_prefix = INPUT_QUESTION_PREFIX_PATTERN.match(answer_text)
-    offset_start = question_prefix.end() if question_prefix else 0
-    text_body = answer_text[offset_start:]
+    """剥离顶层题号；紧凑选择题和连续小问保留真实答案边界。"""
+    answer_text = answer_text or ""
+
+    standalone_choice = re.match(
+        r"^[ \t]*\d+[ \t]*(?=[A-D][ \t\r\n\x07]*$)",
+        answer_text,
+    )
+    if standalone_choice:
+        offset_start = standalone_choice.end()
+        return offset_start, answer_text[offset_start:]
+
+    top_level_prefix = re.match(
+        r"^[ \t]*\d+[ \t]*[．.][ \t]*",
+        answer_text,
+    )
+    if top_level_prefix:
+        remaining_text = answer_text[top_level_prefix.end():]
+        if len(find_subquestion_matches(remaining_text)) >= 2:
+            offset_start = top_level_prefix.end()
+            text_body = remaining_text
+        else:
+            question_prefix = INPUT_QUESTION_PREFIX_PATTERN.match(answer_text)
+            offset_start = question_prefix.end() if question_prefix else 0
+            text_body = answer_text[offset_start:]
+    else:
+        offset_start = 0
+        text_body = answer_text
 
     answer_prefix = re.match(r"^\s*答案[：:]\s*", text_body)
     if answer_prefix:
