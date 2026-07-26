@@ -1,0 +1,4 @@
+interface:
+  display_name: "墨痕归档检查"
+  short_description: "检查墨痕教育开发变更是否需要归档并同步更新 E 盘记忆库"
+  default_prompt: "Use $mohen-archive-check to decide whether this 墨痕教育 change needs archiving and update the E-drive memory library."
