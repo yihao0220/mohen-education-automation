@@ -277,7 +277,7 @@ Windows 生产机运行同一入口，`auto` 会改用 WPS COM：
 
 ## 开发规则
 
-- 先读 `AGENTS.md`，它是 AI 接手的主规则文件。
+- 先读 `CLAUDE.md`，它是 AI 接手的唯一常驻规则文件（`AGENTS.md` 已改为指向它的指针）。学科特例、Bug 定位、预检门禁按 `CLAUDE.md` 的「按需加载」表调用对应 skill。
 - 原题文档属于不可变输入，禁止覆盖或写回；题目结构分析和动作计划必须放在原题之外，只有答案文档可以生成清洗版。
 - 每次修复后必须测试，再报告结果。
 - 每次问题修复或规则调整后必须写入 `问题归档/`。
@@ -287,6 +287,20 @@ Windows 生产机运行同一入口，`auto` 会改用 WPS COM：
 - 如果发现题目录入题数异常暴涨，优先排查表格里的小数是否被误判成题号。
 
 ## 常用验证
+
+两端都可以直接跑全量回归，不需要手工列文件：
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+```bash
+.venv/bin/python -m pytest -q
+```
+
+根目录 `conftest.py` 负责两件事：为 `pyautogui`、`wps_helper` 注入轻量替身，使测试在任何平台都不会真的触发 `F1/F2/F3/F4`；并把 11 个没有测试用例的脚本式调试工具排除出收集范围，它们仍可用 `python <文件>` 手工运行。Windows 真实依赖是否装齐仍由 `scripts/verify_windows.ps1` 独立校验，替身不参与、也不会掩盖缺失。
+
+macOS 上有一批既有失败与错误，全部源于测试硬编码了 `D:\`、`E:\` 业务文档路径，而真实样本按约定不入库；它们不随代码改动变化，不要误判为回归。定位具体模块时仍可只跑其中一组：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider .\test_document_preflight.py .\test_document_families.py
