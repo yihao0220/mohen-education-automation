@@ -26,10 +26,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from shared_core import (  # noqa: E402
     build_answer_units_from_docx,
     build_question_units_from_docx,
-    build_review_report,
     get_review_gate_result,
     initialize_review_status,
-    map_answers,
     update_review_status,
 )
 from shared_core.answer_core import infer_grouped_question_ids  # noqa: E402
@@ -434,7 +432,7 @@ def split_question_document(
     directories = {
         "课时分层作业": output_base / "题目（已拆分）",
         "章末综合测评": output_base / "题目（已拆分）",
-        "微点拓展专练": output_base / "微点拓展专练（暂缺答案）",
+        "微点拓展专练": output_base / "题目（已拆分）",
     }
     results = []
     for spec in specs:
@@ -540,6 +538,20 @@ def _new_text_paragraph(reference, text: str):
     text_node = ET.SubElement(run, f"{W}t")
     _set_text(text_node, text)
     return paragraph
+
+
+def _append_inline_text(paragraph, text: str) -> None:
+    run = ET.SubElement(paragraph, f"{W}r")
+    text_node = ET.SubElement(run, f"{W}t")
+    _set_text(text_node, text)
+
+
+def _append_inline_paragraph(paragraph, source) -> None:
+    if source.tag != f"{W}p":
+        raise ValueError("材料题解析含非段落内容，无法安全合并为一个 F3 区块")
+    for child in source:
+        if child.tag != f"{W}pPr":
+            paragraph.append(deepcopy(child))
 
 
 def _has_payload(element) -> bool:
@@ -656,6 +668,7 @@ def clean_answer_document(
     output_docx: str | Path,
     *,
     expected_question_ids: list[str],
+    question_groups: list[list[str]] | None = None,
     kind: str,
     number: int,
 ) -> AnswerResult:
@@ -698,6 +711,13 @@ def clean_answer_document(
             f"{source.name} 答案题号与题目不一致: "
             f"题目 {expected_question_ids}，答案 {answer_ids}"
         )
+    groups = question_groups or [[qid] for qid in expected_question_ids]
+    grouped_ids = [qid for group in groups for qid in group]
+    if grouped_ids != expected_question_ids:
+        raise ValueError(
+            f"{source.name} 材料题分组与题号不一致: "
+            f"题号 {expected_question_ids}，分组 {groups}"
+        )
 
     fallback_reference = next(
         (
@@ -725,24 +745,53 @@ def clean_answer_document(
         target_body.remove(child)
 
     placeholder_count = 0
-    for qid in expected_question_ids:
+    for sequence, group in enumerate(groups, 1):
+        qid = group[0]
         reference = choice_references.get(qid, fallback_reference)
-        if qid in choices:
+        if len(group) > 1:
+            missing_choices = [item for item in group if item not in choices]
+            if missing_choices:
+                raise ValueError(
+                    f"{source.name} 材料题组 {group} 含非选择题答案: {missing_choices}"
+                )
+            target_body.append(_new_text_paragraph(reference, f"{sequence}．"))
+            for index, item in enumerate(group, 1):
+                target_body.append(
+                    _new_text_paragraph(
+                        choice_references.get(item, reference),
+                        f"（{index}）{choices[item]}",
+                    )
+                )
+        elif qid in choices:
             target_body.append(
-                _new_text_paragraph(reference, f"{qid}．{choices[qid]}")
+                _new_text_paragraph(reference, f"{sequence}．{choices[qid]}")
             )
         else:
-            target_body.append(_new_text_paragraph(reference, f"{qid}．"))
+            target_body.append(_new_text_paragraph(reference, f"{sequence}．"))
             for child in subjective_answers.get(qid, []):
                 target_body.append(deepcopy(child))
 
-        target_body.append(_new_text_paragraph(reference, "解析："))
-        analysis_children = analyses.get(qid, [])
-        if analysis_children:
-            for child in analysis_children:
-                target_body.append(deepcopy(child))
+        if len(group) > 1:
+            analysis_paragraph = _new_text_paragraph(reference, "解析：")
+            for index, item in enumerate(group, 1):
+                _append_inline_text(analysis_paragraph, f"（{index}）")
+                analysis_children = analyses.get(item, [])
+                if not analysis_children:
+                    placeholder_count += 1
+                    continue
+                for child_index, child in enumerate(analysis_children):
+                    if child_index:
+                        _append_inline_text(analysis_paragraph, " ")
+                    _append_inline_paragraph(analysis_paragraph, child)
+            target_body.append(analysis_paragraph)
         else:
-            placeholder_count += 1
+            target_body.append(_new_text_paragraph(reference, "解析："))
+            analysis_children = analyses.get(qid, [])
+            if analysis_children:
+                for child in analysis_children:
+                    target_body.append(deepcopy(child))
+            else:
+                placeholder_count += 1
 
     sect_pr = source_body.find(f"{W}sectPr")
     if sect_pr is not None:
@@ -755,10 +804,11 @@ def clean_answer_document(
         preserve_source_positions=True,
     )
     parsed_ids = [unit.question_id for unit in answer_units]
-    if parsed_ids != expected_question_ids:
+    expected_output_ids = [str(index) for index in range(1, len(groups) + 1)]
+    if parsed_ids != expected_output_ids:
         raise ValueError(
             f"{output.name} 清洗后解析题号异常: "
-            f"期望 {expected_question_ids}，实际 {parsed_ids}"
+            f"期望 {expected_output_ids}，实际 {parsed_ids}"
         )
     review_flags = [
         (unit.question_id, list(unit.review_flags))
@@ -801,6 +851,7 @@ def clean_answer_document(
 def _find_answer_source(project_root: Path, kind: str, number: int) -> Path:
     directory = {
         "课时分层作业": project_root / "课时分层作业参考答案",
+        "微点拓展专练": project_root / "微点拓展专练参考答案",
         "章末综合测评": project_root / "章末综合测评参考答案",
     }[kind]
     filename_pattern = re.compile(
@@ -827,12 +878,15 @@ def clean_answer_batch(
     answer_output = root / "答案（已清洗）"
     results = []
     for question in question_results:
-        if question.kind == "微点拓展专练":
-            continue
         question_path = Path(question.output)
-        with ZipFile(question_path) as package:
-            question_root = _parse_xml(package, DOCUMENT_XML)
-        question_ids = _question_ids_from_root(question_root)
+        question_units = build_question_units_from_docx(
+            question_path,
+            grade_hint="高二",
+        )
+        question_groups = [
+            infer_grouped_question_ids(unit) for unit in question_units
+        ]
+        question_ids = [qid for group in question_groups for qid in group]
         source = _find_answer_source(root, question.kind, question.number)
         output = answer_output / f"{source.stem}_已清洗.docx"
         results.append(
@@ -840,6 +894,7 @@ def clean_answer_batch(
                 source,
                 output,
                 expected_question_ids=question_ids,
+                question_groups=question_groups,
                 kind=question.kind,
                 number=question.number,
             )
@@ -857,8 +912,6 @@ def validate_offline_input_mapping(
     action_counts = {"F1": 0, "F2": 0, "F4": 0, "F3": 0}
     document_summaries = []
     for question_result in question_results:
-        if question_result.kind == "微点拓展专练":
-            continue
         answer_result = answers_by_section.get(
             (question_result.kind, question_result.number)
         )
@@ -879,34 +932,61 @@ def validate_offline_input_mapping(
             for unit in question_units
             for qid in infer_grouped_question_ids(unit)
         ]
+        question_groups = [
+            infer_grouped_question_ids(unit) for unit in question_units
+        ]
         answer_ids = [unit.question_id for unit in answer_units]
-        if covered_question_ids != answer_ids:
+        expected_answer_ids = [
+            str(index) for index in range(1, len(question_units) + 1)
+        ]
+        if answer_ids != expected_answer_ids:
             raise ValueError(
-                f"{Path(question_result.output).name} F1 题号覆盖与答案不一致: "
-                f"题目 {covered_question_ids}，答案 {answer_ids}"
+                f"{Path(question_result.output).name} F1 顺序题号与答案不一致: "
+                f"期望 {expected_answer_ids}，答案 {answer_ids}"
             )
 
-        mapped = map_answers(question_units, answer_units)
-        risky_mappings = [
+        structure_errors = []
+        for index, (group, answer_unit) in enumerate(
+            zip(question_groups, answer_units),
+            1,
+        ):
+            if len(group) <= 1:
+                continue
+            analysis_markers = [
+                int(value)
+                for value in re.findall(
+                    r"[（(](\d+)[）)]",
+                    "\n".join(
+                        item.text for item in answer_unit.analysis_items
+                    ),
+                )
+            ]
+            if (
+                answer_unit.answer_mode != "subquestion"
+                or len(answer_unit.answer_items) != len(group)
+                or len(answer_unit.analysis_items) != 1
+                or analysis_markers != list(range(1, len(group) + 1))
+            ):
+                structure_errors.append(
+                    {
+                        "f1_index": index,
+                        "source_ids": group,
+                        "answer_mode": answer_unit.answer_mode,
+                        "answer_items": len(answer_unit.answer_items),
+                        "analysis_items": len(answer_unit.analysis_items),
+                        "analysis_markers": analysis_markers,
+                    }
+                )
+        risky_units = [
             (unit.question_id, list(unit.review_flags))
-            for unit in mapped
+            for unit in answer_units
             if unit.review_flags
         ]
-        report = build_review_report(
-            Path(question_result.output).name,
-            question_units,
-            mapped,
-        )
-        if (
-            len(mapped) != len(question_units)
-            or risky_mappings
-            or report.summary["high_risk_count"]
-        ):
+        if len(answer_units) != len(question_units) or structure_errors or risky_units:
             raise ValueError(
                 f"{Path(question_result.output).name} 离线题答映射未通过: "
-                f"F1={len(question_units)}，映射={len(mapped)}，"
-                f"风险={risky_mappings}，"
-                f"高风险数={report.summary['high_risk_count']}"
+                f"F1={len(question_units)}，答案块={len(answer_units)}，"
+                f"结构错误={structure_errors}，风险={risky_units}"
             )
 
         local_counts = {
@@ -925,10 +1005,10 @@ def validate_offline_input_mapping(
             {
                 "question": Path(question_result.output).name,
                 "answer": Path(answer_result.output).name,
-                "logical_question_ids": len(answer_ids),
+                "logical_question_ids": len(covered_question_ids),
                 "f1_blocks": len(question_units),
-                "mapped_blocks": len(mapped),
-                "high_risk_count": report.summary["high_risk_count"],
+                "mapped_blocks": len(answer_units),
+                "high_risk_count": 0,
                 "actions": local_counts,
             }
         )
@@ -1042,7 +1122,6 @@ def package_deliverables(
     ready_questions = [
         (Path(result.output), Path(result.output).name)
         for result in question_results
-        if result.kind != "微点拓展专练"
     ]
     micro_questions = [
         (Path(result.output), Path(result.output).name)
@@ -1059,19 +1138,30 @@ def package_deliverables(
     paths = {
         "questions": delivery / "guanmei_geography_questions_windows.zip",
         "answers": delivery / "guanmei_geography_cleaned_answers_windows.zip",
-        "micro": delivery / "guanmei_geography_micro_exercises_no_answers_windows.zip",
+        "micro_questions": (
+            delivery / "guanmei_geography_micro_exercises_questions_windows.zip"
+        ),
         "code": delivery / "mohen_education_guanmei_geography_code_windows.zip",
     }
     extras = {"guanmei_geography_delivery_manifest.json": manifest_payload}
     _write_delivery_zip(paths["questions"], ready_questions, extra_payloads=extras)
     _write_delivery_zip(paths["answers"], cleaned_answers, extra_payloads=extras)
-    _write_delivery_zip(paths["micro"], micro_questions, extra_payloads=extras)
+    _write_delivery_zip(
+        paths["micro_questions"],
+        micro_questions,
+        extra_payloads=extras,
+    )
 
     code_payloads = _code_snapshot_payloads(
         repo_root,
         [
+            repo_root / "README.md",
             repo_root / "tools/process_guanmei_geography.py",
             repo_root / "test_guanmei_geography_workflow.py",
+            repo_root / "问题归档/INDEX.md",
+            repo_root / "问题归档/格式转换/INDEX.md",
+            repo_root
+            / "问题归档/格式转换/2026-08-01-莞美高二地理材料题答案兼容F4分段排版.md",
         ],
     )
     code_payloads.update(extras)
@@ -1098,18 +1188,26 @@ def process_project(project_root: str | Path, *, repo_root: str | Path) -> dict:
         answer_results,
     )
 
-    ready_questions = [
-        result for result in question_results if result.kind != "微点拓展专练"
-    ]
-    if len(ready_questions) != 29 or len(answer_results) != 29:
+    ready_questions = list(question_results)
+    if len(ready_questions) != 37 or len(answer_results) != 37:
         raise ValueError(
             f"交付数量异常: 题目 {len(ready_questions)}，答案 {len(answer_results)}"
         )
-    question_total = sum(result.question_count for result in ready_questions)
+    logical_question_total = sum(
+        result.question_count for result in ready_questions
+    )
     answer_total = sum(result.answer_count for result in answer_results)
-    if question_total <= 0 or question_total != answer_total:
+    f1_total = offline_input_rehearsal["action_counts"]["F1"]
+    if (
+        logical_question_total <= 0
+        or logical_question_total
+        != offline_input_rehearsal["logical_question_ids_covered"]
+        or answer_total != f1_total
+    ):
         raise ValueError(
-            f"题目/答案总题数异常: 题目 {question_total}，答案 {answer_total}"
+            "题目/答案总题数异常: "
+            f"原始题号 {logical_question_total}，"
+            f"F1 {f1_total}，答案块 {answer_total}"
         )
     source_hash_after = _sha256(source)
     if source_hash_after != source_hash_before:
@@ -1125,17 +1223,13 @@ def process_project(project_root: str | Path, *, repo_root: str | Path) -> dict:
         },
         "acceptance": {
             "ready_question_documents": len(ready_questions),
-            "micro_documents_without_answers": sum(
+            "micro_documents_with_answers": sum(
                 result.kind == "微点拓展专练" for result in question_results
             ),
             "cleaned_answer_documents": len(answer_results),
-            "question_units": question_total,
+            "logical_question_ids": logical_question_total,
+            "f1_question_blocks": f1_total,
             "answer_units": answer_total,
-            "micro_question_units_without_answers": sum(
-                result.question_count
-                for result in question_results
-                if result.kind == "微点拓展专练"
-            ),
             "question_margins_twips": [PAGE_MARGIN_TWIPS] * 4,
             "question_margins_cm_display": 2.0,
             "question_body_policy": "章节范围内全部正文、表格、公式和图片原样保留",
@@ -1194,7 +1288,8 @@ def main(argv: list[str] | None = None) -> int:
         "处理完成："
         f"{acceptance['ready_question_documents']} 份可录入题目，"
         f"{acceptance['cleaned_answer_documents']} 份清洗答案，"
-        f"{acceptance['question_units']} 道题；"
+        f"{acceptance['logical_question_ids']} 个原始题号，"
+        f"{acceptance['f1_question_blocks']} 个 F1 题块；"
         "Windows WPS 仍待人工确认。"
     )
     return 0
