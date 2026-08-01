@@ -10,10 +10,10 @@
 |------|------|------|------|
 | 任务面板 | `main.py` | 稳定可用 | 自动配对题目 / 原始答案 / 已清洗答案 / 审核状态，并给出下一步动作 |
 | 题目录入 | `main.py` / `墨痕快刀/main.py` | 稳定可用 | 英语、理科、文科三核 + 学科覆盖层 |
-| 未来高二生物题目录入 | `future_biology` 覆盖层 | 离线开发完成；Windows WPS 待验证 | 顶层阿拉伯题号逐题 F1；保留题图、表格、公式与小问，排除结构标题和已确认装饰图片 |
+| 未来高二生物题目录入 | `future_biology` 覆盖层 | 离线开发完成；GitHub Windows 离线回归通过；生产 WPS 待验证 | 顶层阿拉伯题号逐题 F1；保留题图、表格、公式与小问，排除结构标题和已确认装饰图片 |
 | 答案格式清洗 | `格式处理/main.py` | 稳定可用 | 多模板清洗，未来高二物理、未来高二历史与安乡金海初二数学模板已接入 |
 | 未来高二生物答案边界截取 | `tools/trim_future_biology_answers.py` | 稳定可用；中间步骤 | 以“课时对点练”图片字段或可见文字为唯一边界，不代表已完成答案清洗 |
-| 未来高二生物答案清洗 | `tools/clean_future_biology_answers.py` | 42 份、580 题离线门禁通过；Windows WPS 待验证 | 只保留题号、答案、解析及它们的富文本/图片，补齐空解析并生成审核状态 |
+| 未来高二生物答案清洗 | `tools/clean_future_biology_answers.py` | 42 份、580 题离线门禁通过；GitHub Windows 离线回归通过；生产 WPS 待验证 | 只保留题号、答案、解析及它们的富文本/图片，补齐空解析并生成审核状态 |
 | 答案录入 | `答案录入/answer_input.py` | 稳定可用 | F2/F3/F4 自动录入，依赖审核状态文件 |
 | DOCX 只读预检 | `tools/build_document_preflight.py` | PoC + P0 可用 | 生成 Profile 1.1、题内角色证据、Docling 对照和 F1 预演计划；固定不连接 WPS、不执行按键 |
 | 文档族分析 | `tools/analyze_document_families.py` | P1a 可用 | 读取一批 Profile 1.1，生成候选文档族、代表样本、异常候选和人工复核队列；固定只作建议 |

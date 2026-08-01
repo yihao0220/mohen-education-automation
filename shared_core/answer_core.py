@@ -29,6 +29,7 @@ INTERLEAVED_SUB_ENTRY_PATTERN = re.compile(
     r"^\s*([\(（]\d+[\)）])\s*(答案|解析)[：:]\s*(.*)$"
 )
 COMPACT_CHOICE_PATTERN = re.compile(r"(\d+)[．.]?\s*([A-D])(?=(?:\s*\d+[．.]?\s*[A-D])|$)")
+STANDALONE_COMPACT_CHOICE_PATTERN = re.compile(r"^\s*(\d+)\s*([A-D])\s*$")
 ANALYSIS_ENTRY_PATTERN = re.compile(
     r"^\s*(?:【(?:解析|详解|分析)】\s*|(?:解析|详解|分析)[：:]?\s*)?(\d+)[．.]\s*(.*)$"
 )
@@ -58,6 +59,7 @@ ZHONGMEI_CHINESE_ANSWER_DEFINED_SUBQUESTION_MARKERS = (
 )
 ZHONGMEI_CHINESE_PROJECT_MARKER = "众美-高三-语文"
 ZHONGMEI_CLASSICAL_CHINESE_DIR_NAMES = frozenset({"文言文", "文言文答案"})
+GUANMEI_BIOLOGY_PROJECT_MARKER = "莞美-高二-生物"
 ANSWER_INPUT_BOUNDARY_HEADINGS = frozenset(
     {
         "一、专项训练",
@@ -235,6 +237,14 @@ def _normalize_paragraph_texts(
             index += 1
             continue
 
+        standalone_choice = STANDALONE_COMPACT_CHOICE_PATTERN.match(text)
+        if standalone_choice:
+            normalized_lines.append(
+                f"{standalone_choice.group(1)}．{standalone_choice.group(2)}"
+            )
+            index += 1
+            continue
+
         compact_pairs = _extract_compact_choice_pairs(text)
         if len(compact_pairs) > 1:
             if preserve_source_positions:
@@ -362,6 +372,10 @@ def _docx_allows_answer_defined_subquestions(docx_path: str | Path) -> bool:
     )
 
 
+def _docx_uses_guanmei_biology_context(docx_path: str | Path) -> bool:
+    return GUANMEI_BIOLOGY_PROJECT_MARKER in str(docx_path)
+
+
 def _answer_items_all_empty(unit: AnswerUnit) -> bool:
     return bool(unit.answer_items) and not any(item.text and item.text.strip() for item in unit.answer_items)
 
@@ -398,9 +412,22 @@ def _apply_docx_context_to_units(units: list[AnswerUnit], docx_path: str | Path)
     force_whole_answer_input = _docx_uses_whole_answer_input_for_subquestions(docx_path)
     allow_answer_defined_subquestions = _docx_allows_answer_defined_subquestions(docx_path)
     ordered_occurrence_mapping = _docx_uses_zhongmei_classical_chinese_context(docx_path)
+    guanmei_biology_context = _docx_uses_guanmei_biology_context(docx_path)
     source_path = str(Path(docx_path))
 
     for unit in units:
+        if guanmei_biology_context and len(unit.answer_items) == 1:
+            compound_match = re.fullmatch(r"(\d+)．（1）", unit.question_id)
+            if compound_match:
+                sub_answer_items = _extract_sub_answer_items(
+                    f"（1）{unit.answer_items[0].text}"
+                )
+                if len(sub_answer_items) > 1:
+                    unit.question_id = compound_match.group(1)
+                    unit.answer_mode = "subquestion"
+                    unit.answer_items = sub_answer_items
+                    for analysis_item in unit.analysis_items:
+                        analysis_item.item_id = unit.question_id
         if ordered_occurrence_mapping and _is_single_classical_translation_subquestion(unit):
             unit.answer_mode = "subquestion"
         unit_force_whole_answer_input = force_whole_answer_input or (
@@ -435,6 +462,32 @@ def _apply_docx_context_to_units(units: list[AnswerUnit], docx_path: str | Path)
 
 
 def _extract_sub_answer_items(text: str) -> list[AnswerItem]:
+    stripped_text = text.lstrip()
+    inline_matches = list(INLINE_SUB_PATTERN.finditer(text or ""))
+    inline_numbers = [
+        _sub_marker_number(match.group(1))
+        for match in inline_matches
+    ]
+    first_inline_match = INLINE_SUB_PATTERN.search(stripped_text)
+    if (
+        inline_matches
+        and first_inline_match
+        and first_inline_match.start() == 0
+        and inline_numbers == list(range(1, len(inline_matches) + 1))
+    ):
+        items: list[AnswerItem] = []
+        for index, match in enumerate(inline_matches):
+            start = match.end()
+            end = (
+                inline_matches[index + 1].start()
+                if index + 1 < len(inline_matches)
+                else len(text)
+            )
+            item_text = text[start:end].strip()
+            item_text = ANSWER_PREFIX_PATTERN.sub("", item_text, count=1).strip()
+            items.append(AnswerItem(item_id=match.group(1), text=item_text))
+        return items
+
     line_marker_pattern = re.compile(
         r"(?m)^[ \t]*([\(（]\d+[\)）])"
     )
@@ -456,7 +509,6 @@ def _extract_sub_answer_items(text: str) -> list[AnswerItem]:
             items.append(AnswerItem(item_id=match.group(1), text=item_text))
         return items
 
-    stripped_text = text.lstrip()
     first = INLINE_SUB_PATTERN.search(stripped_text)
     if first and first.start() == 0:
         marker = first.group(1)
@@ -834,7 +886,10 @@ def build_answer_units_from_wps(doc) -> list[AnswerUnit]:
         ),
         preserve_source_positions=True,
     )
-    if _docx_uses_zhongmei_classical_chinese_context(context):
+    if (
+        _docx_uses_zhongmei_classical_chinese_context(context)
+        or _docx_uses_guanmei_biology_context(context)
+    ):
         source_path = str(getattr(doc, "FullName", "") or getattr(doc, "Name", "") or context)
         return _apply_docx_context_to_units(units, source_path)
     return units
