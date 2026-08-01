@@ -14,7 +14,6 @@
 - 模板C: 道法【答案】【解析】格式 (template_c.py)
 """
 
-import io
 import os
 import sys
 import time
@@ -45,6 +44,7 @@ from shared_core import (
     export_review_report,
     map_answers,
 )
+from shared_core.cli_output import configure_utf8_stdio
 
 
 # 注册所有可用模板
@@ -68,14 +68,6 @@ def _should_align_cleaned_output(template) -> bool:
         "未来高二 - 物理总答案",
     }
     return template.TEMPLATE_FEATURES.get("name") not in rich_text_templates
-
-
-def _ensure_utf8_stdout():
-    current_stdout = getattr(sys, "stdout", None)
-    buffer = getattr(current_stdout, "buffer", None)
-    encoding = getattr(current_stdout, "encoding", "") or ""
-    if buffer is not None and encoding.lower() != "utf-8":
-        sys.stdout = io.TextIOWrapper(buffer, encoding="utf-8")
 
 
 def _is_valid_docx_file(path):
@@ -729,7 +721,7 @@ def show_menu(active_doc_name=None):
 
 def main():
     """主入口函数"""
-    _ensure_utf8_stdout()
+    configure_utf8_stdio()
     print("\n" + "=" * 60)
     print("🔌 正在初始化...")
     

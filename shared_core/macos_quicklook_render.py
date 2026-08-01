@@ -15,14 +15,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SWIFT_HELPER = PROJECT_ROOT / "tools" / "macos" / "quicklook_webkit_pdf.swift"
 
 
-def _is_inside(path: Path, directory: Path) -> bool:
-    try:
-        path.relative_to(directory)
-    except ValueError:
-        return False
-    return True
-
-
 def _run(command: list[str], *, label: str, timeout: int = 180) -> None:
     try:
         subprocess.run(
@@ -53,7 +45,7 @@ def export_docx_to_pdf_with_macos_quicklook(
         raise FileNotFoundError(source)
     if not helper.is_file():
         raise FileNotFoundError(f"Quick Look WebKit 辅助程序不存在：{helper}")
-    if _is_inside(target.parent, source.parent):
+    if target.parent.is_relative_to(source.parent):
         raise ValueError("Quick Look 导出的 PDF 不能写入原题目录或其子目录")
     qlmanage = shutil.which("qlmanage")
     swiftc = shutil.which("swiftc")

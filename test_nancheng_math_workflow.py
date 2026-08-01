@@ -19,6 +19,19 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 NANCHENG_G4_DIR = Path(r"D:\墨痕教育题目\南城二小-四年级-数学-王逸豪")
 NANCHENG_G5_DIR = Path(r"D:\墨痕教育题目\南城二小-五年级-数学-王逸豪")
 NANCHENG_ANSWER_DOC = NANCHENG_G4_DIR / "答案与解析数学.docx"
+NANCHENG_G5_QUESTION_FILES = (
+    "2025-2026学年度第二学期五年级数学AI学导练（4单元）.docx",
+    "2025-2026学年度第二学期五年级数学AI学导练（7-8单元）.docx",
+)
+HAS_NANCHENG_G5_QUESTIONS = all(
+    (NANCHENG_G5_DIR / filename).is_file()
+    for filename in NANCHENG_G5_QUESTION_FILES
+)
+HAS_NANCHENG_REAL_SAMPLES = (
+    NANCHENG_ANSWER_DOC.is_file()
+    and NANCHENG_G4_DIR.is_dir()
+    and HAS_NANCHENG_G5_QUESTIONS
+)
 FORMAT_MAIN_SPEC = importlib.util.spec_from_file_location(
     "mohen_format_main_nancheng_test",
     PROJECT_ROOT / "格式处理" / "main.py",
@@ -104,6 +117,10 @@ class NanchengMathQuestionScanTests(unittest.TestCase):
 
             self.assertEqual([unit.question_id for unit in units], ["13", "14", "23"])
 
+    @unittest.skipUnless(
+        HAS_NANCHENG_G5_QUESTIONS,
+        "需要 Windows 南城五年级真实题目样本",
+    )
     def test_real_nancheng_fifth_grade_docs_have_continuous_question_numbers(self):
         expected = {
             "2025-2026学年度第二学期五年级数学AI学导练（4单元）.docx": (30, []),
@@ -119,6 +136,7 @@ class NanchengMathQuestionScanTests(unittest.TestCase):
                 self.assertEqual(missing, expected_missing)
 
 
+@unittest.skipUnless(HAS_NANCHENG_REAL_SAMPLES, "需要 Windows 南城真实题答样本")
 class NanchengMathAnswerTemplateTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -195,6 +213,7 @@ class NanchengMathAnswerTemplateTests(unittest.TestCase):
         self.assertEqual(report.summary["high_risk_count"], 0)
 
 
+@unittest.skipUnless(HAS_NANCHENG_REAL_SAMPLES, "需要 Windows 南城真实题答样本")
 class NanchengMathSplitToolTests(unittest.TestCase):
     def test_split_total_answer_docx_writes_reviewable_unit_answer_docs(self):
         with tempfile.TemporaryDirectory() as temp_dir:

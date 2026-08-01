@@ -25,20 +25,12 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
-def _is_inside(path: Path, directory: Path) -> bool:
-    try:
-        path.relative_to(directory)
-    except ValueError:
-        return False
-    return True
-
-
 def _validate_source_and_output(source_path: Path, output_dir: Path) -> None:
     source = source_path.resolve()
     target = output_dir.resolve()
     if not source.is_file():
         raise FileNotFoundError(source)
-    if _is_inside(target, source.parent):
+    if target.is_relative_to(source.parent):
         raise ValueError("页面渲染产物不能写入原题目录或其子目录")
 
 
@@ -502,7 +494,7 @@ def export_docx_to_pdf_with_wps(
     target = Path(output_pdf).resolve()
     if not source.is_file():
         raise FileNotFoundError(source)
-    if _is_inside(target.parent, source.parent):
+    if target.parent.is_relative_to(source.parent):
         raise ValueError("WPS 导出的 PDF 不能写入原题目录或其子目录")
     before_hash = sha256_file(source)
     target.parent.mkdir(parents=True, exist_ok=True)

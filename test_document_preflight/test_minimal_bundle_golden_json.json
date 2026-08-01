@@ -41,8 +41,8 @@
     },
     "docling": {
       "enabled": false,
-      "available": true,
-      "package_version": "2.113.0",
+      "available": "<AVAILABLE>",
+      "package_version": "<VERSION>",
       "status": "skipped"
     },
     "roles": {

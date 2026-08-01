@@ -58,6 +58,8 @@ def _stable_bundle_view(bundle: dict) -> dict:
     view["profile"]["source"]["path"] = "<SOURCE>"
     view["profile"]["source"]["size_bytes"] = "<SIZE>"
     view["profile"]["source"]["sha256"] = "<SHA256>"
+    view["profile"]["docling"]["available"] = "<AVAILABLE>"
+    view["profile"]["docling"]["package_version"] = "<VERSION>"
     view["plan"]["source_sha256"] = "<SHA256>"
     return view
 
