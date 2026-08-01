@@ -98,6 +98,22 @@ def _write_answer_source(path: Path) -> None:
     document.save(path)
 
 
+def _write_grouped_choice_answer_source(path: Path) -> None:
+    document = Document()
+    document.add_paragraph("课时分层作业(一)")
+    table = document.add_table(rows=2, cols=2)
+    table.cell(0, 0).text = "1"
+    table.cell(0, 1).text = "2"
+    table.cell(1, 0).text = "D"
+    table.cell(1, 1).text = "B"
+    document.add_paragraph("试题精析")
+    document.add_paragraph("1．D [第1题，第一小题解析。]")
+    second_analysis = document.add_paragraph("2．B [第2题，第二小题解析")
+    _append_omath(second_analysis, "x=2")
+    second_analysis.add_run("。]")
+    document.save(path)
+
+
 class GuanmeiGeographyQuestionSplitTests(unittest.TestCase):
     def test_split_preserves_body_picture_and_exact_two_cm_margins(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -148,6 +164,42 @@ class GuanmeiGeographyQuestionSplitTests(unittest.TestCase):
 
 
 class GuanmeiGeographyAnswerCleanTests(unittest.TestCase):
+    def test_material_group_combines_answers_and_analyses_into_one_f3_block(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "课时分层作业1　参考答案.docx"
+            output = root / "课时分层作业1　参考答案_已清洗.docx"
+            _write_grouped_choice_answer_source(source)
+
+            result = clean_answer_document(
+                source,
+                output,
+                expected_question_ids=["1", "2"],
+                question_groups=[["1", "2"]],
+                kind="课时分层作业",
+                number=1,
+            )
+
+            paragraphs = [paragraph.text for paragraph in Document(output).paragraphs]
+            self.assertEqual(paragraphs[:3], ["1．", "（1）D", "（2）B"])
+            self.assertTrue(
+                paragraphs[3].startswith("解析：（1）第一小题解析。（2）第二小题解析")
+            )
+            units = build_answer_units_from_docx(
+                output,
+                preserve_source_positions=True,
+            )
+            self.assertEqual(result.answer_count, 1)
+            self.assertEqual([unit.question_id for unit in units], ["1"])
+            self.assertEqual(
+                [item.text for item in units[0].answer_items],
+                ["D", "B"],
+            )
+            self.assertEqual(len(units[0].analysis_items), 1)
+            self.assertIn("（1）第一小题解析。", units[0].analysis_items[0].text)
+            self.assertIn("（2）第二小题解析", units[0].analysis_items[0].text)
+            self.assertGreaterEqual(result.math_count, 1)
+
     def test_rich_paragraph_slice_does_not_duplicate_out_of_range_math(self):
         document = Document()
         paragraph = document.add_paragraph("左段")
