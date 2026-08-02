@@ -5,7 +5,11 @@ from tools.execute_f1_action_plan import (
     execute_actions,
     validate_execution_profile,
 )
-from tools.preview_f1_action_plan import preview_actions, validate_preview_plan
+from tools.preview_f1_action_plan import (
+    bind_action_plan_to_wps,
+    preview_actions,
+    validate_preview_plan,
+)
 
 
 class FakeRange:
@@ -83,6 +87,127 @@ def _plan():
             },
         ],
     }
+
+
+def _source_plan_without_paragraph_numbers():
+    return {
+        "schema_version": "1.1",
+        "mode": "preview_only",
+        "execution_enabled": False,
+        "actions": [
+            {
+                "sequence": 1,
+                "key": "F1",
+                "question_ids": ["1", "2"],
+                "preview": "材料题。1．第一题",
+                "source_ref": {
+                    "start_preview": "材料题。",
+                    "end_preview": "2．第二题",
+                    "table_count": 1,
+                    "table_specs": [
+                        {"table_index": 1, "row_count": 1, "column_count": 2}
+                    ],
+                    "media_count": 0,
+                    "formula_count": 0,
+                },
+            },
+            {
+                "sequence": 2,
+                "key": "F1",
+                "question_ids": ["3"],
+                "preview": "3．第三题",
+                "source_ref": {
+                    "start_preview": "3．第三题",
+                    "end_preview": "第三题结尾",
+                    "table_count": 0,
+                    "table_specs": [],
+                    "media_count": 0,
+                    "formula_count": 0,
+                },
+            },
+        ],
+    }
+
+
+def test_bind_action_plan_to_wps_resolves_all_actions_without_source_paragraph_numbers():
+    plan = _source_plan_without_paragraph_numbers()
+    doc = FakeDocument(
+        [
+            "标题",
+            "材料题。",
+            "表头",
+            "单元格甲",
+            "单元格乙",
+            "2．第二题",
+            "",  # 前一题后的无文字图片/装饰段落
+            "3．第三题",
+            "第三题结尾",
+        ],
+        table_ids={3: 1, 4: 1, 5: 1},
+    )
+
+    bound = bind_action_plan_to_wps(doc, plan, output=lambda _message: None)
+
+    assert bound["wps_binding"] == {
+        "status": "completed",
+        "authority": "windows_wps_runtime",
+        "action_count": 2,
+    }
+    assert [action["wps_ref"] for action in bound["actions"]] == [
+        {"paragraph_start": 2, "paragraph_end": 6, "table_count": 1},
+        {"paragraph_start": 8, "paragraph_end": 9, "table_count": 0},
+    ]
+    assert all(
+        "paragraph_start" not in action["source_ref"]
+        for action in bound["actions"]
+    )
+    assert not [item for item in doc.selected_ranges if item.selected]
+
+    receipt = preview_actions(
+        doc,
+        bound,
+        confirm=lambda _prompt: "",
+        output=lambda _message: None,
+    )
+
+    selected = [item for item in doc.selected_ranges if item.selected]
+    assert receipt == {"status": "completed", "selected_actions": 2, "keypress_count": 0}
+    assert [(item.Start, item.End) for item in selected] == [(200, 605), (800, 905)]
+
+
+def test_binding_rejects_later_ambiguity_before_preview_confirmation():
+    plan = _source_plan_without_paragraph_numbers()
+    doc = FakeDocument(
+        [
+            "标题",
+            "材料题。",
+            "表头",
+            "单元格甲",
+            "单元格乙",
+            "2．第二题",
+            "3．第三题",
+            "第三题结尾",
+            "3．第三题",
+            "第三题结尾",
+        ],
+        table_ids={3: 1, 4: 1, 5: 1},
+    )
+
+    with pytest.raises(ValueError, match="第 2 个动作.*多个段落"):
+        bind_action_plan_to_wps(doc, plan, output=lambda _message: None)
+
+
+def test_preview_schema_11_requires_completed_wps_binding():
+    plan = _source_plan_without_paragraph_numbers()
+    doc = FakeDocument(["标题", "材料题。", "2．第二题", "3．第三题", "第三题结尾"])
+
+    with pytest.raises(ValueError, match="WPS 全量绑定"):
+        preview_actions(
+            doc,
+            plan,
+            confirm=lambda _prompt: "",
+            output=lambda _message: None,
+        )
 
 
 def test_preview_actions_selects_ranges_without_pressing_f1():

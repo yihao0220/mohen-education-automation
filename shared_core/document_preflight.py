@@ -19,8 +19,21 @@ from .subject_overlay import detect_subject_overlay, get_subject_overlay
 
 
 PROFILE_SCHEMA_VERSION = "1.1"
-ACTION_PLAN_SCHEMA_VERSION = "1.0"
+ACTION_PLAN_SCHEMA_VERSION = "1.1"
 GENERATOR_NAME = "mohen-document-preflight-poc"
+
+FOLDER_SUBJECT_HINTS: tuple[tuple[str, str], ...] = (
+    ("道德与法治", "文科"),
+    ("语文", "文科"),
+    ("数学", "理科"),
+    ("英语", "英语"),
+    ("物理", "理科"),
+    ("化学", "理科"),
+    ("生物", "理科"),
+    ("历史", "文科"),
+    ("地理", "文科"),
+    ("政治", "文科"),
+)
 
 
 def _sha256(path: Path) -> str:
@@ -218,13 +231,46 @@ def _build_profile_issues(native: dict[str, Any], docling: dict[str, Any]) -> li
     return issues
 
 
-def _resolve_subject(doc_name: str, nodes: list) -> tuple[str, str | None]:
+def _subject_from_project_folder(path: Path) -> tuple[str, str] | None:
+    """项目文件夹名是人工确定的学科事实，优先于正文猜测。"""
+
+    for parent in path.parents:
+        folder_name = parent.name
+        matched_hints = [
+            (keyword, subject)
+            for keyword, subject in FOLDER_SUBJECT_HINTS
+            if keyword in folder_name
+        ]
+        if len(matched_hints) == 1:
+            return matched_hints[0][1], folder_name
+        if len(matched_hints) > 1:
+            return None
+    return None
+
+
+def _resolve_subject(path: Path, nodes: list) -> tuple[str, str | None]:
     sample_text = " ".join(node.text for node in nodes[:20])
-    overlay_name = detect_subject_overlay(doc_name, sample_text, base_subject="文科")
+    folder_hint = _subject_from_project_folder(path)
+    if folder_hint:
+        folder_subject, folder_name = folder_hint
+        overlay_name = detect_subject_overlay(
+            folder_name,
+            "",
+            base_subject=folder_subject,
+        )
+        if not overlay_name:
+            overlay_name = detect_subject_overlay(
+                f"{folder_name}/{path.name}",
+                sample_text,
+                base_subject=folder_subject,
+            )
+        return folder_subject, overlay_name
+
+    overlay_name = detect_subject_overlay(path.name, sample_text, base_subject="文科")
     if overlay_name:
         overlay = get_subject_overlay(overlay_name)
         return (overlay.base_subject if overlay else "文科"), overlay_name
-    return choose_strategy(doc_name, sample_text).name, None
+    return choose_strategy(path.name, sample_text).name, None
 
 
 def _tables_for_paragraph_span(
@@ -245,7 +291,7 @@ def _tables_for_paragraph_span(
 
 
 def _compile_actions(path: Path, nodes: list, native: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
-    subject_name, overlay_name = _resolve_subject(path.name, nodes)
+    subject_name, overlay_name = _resolve_subject(path, nodes)
     units = build_question_units_from_nodes(
         path.name,
         subject_name,
@@ -309,16 +355,12 @@ def _compile_actions(path: Path, nodes: list, native: dict[str, Any]) -> tuple[l
                 "confidence": unit.confidence,
                 "warnings": list(unit.warnings),
                 "source_ref": {
-                    "virtual_node_start": unit.source_span[0],
-                    "virtual_node_end": unit.source_span[1],
-                    "paragraph_start": paragraph_start,
-                    "paragraph_end": paragraph_end,
                     "start_preview": selected_texts[0][:160] if selected_texts else "",
                     "end_preview": selected_texts[-1][:160] if selected_texts else "",
-                    "table_indexes": table_indexes,
+                    "table_count": len(table_indexes),
                     "table_specs": table_specs,
-                    "media_paragraphs": media_paragraphs,
-                    "formula_paragraphs": formula_paragraphs,
+                    "media_count": len(media_paragraphs),
+                    "formula_count": len(formula_paragraphs),
                 },
             }
         )
@@ -521,10 +563,11 @@ def _plan_markdown(plan: dict[str, Any]) -> str:
                 f"### {action['sequence']}. F1 题号 {', '.join(action['question_ids'])}",
                 "",
                 f"- 类型：{action['question_type']} / {action['node_type']}",
-                f"- 原始段落：{source_ref['paragraph_start']}—{source_ref['paragraph_end']}",
-                f"- 原生表格：{source_ref['table_indexes'] or '无'}",
-                f"- 媒体段落：{source_ref['media_paragraphs'] or '无'}",
-                f"- 公式段落：{source_ref['formula_paragraphs'] or '无'}",
+                f"- 开头锚点：{source_ref['start_preview'] or '无'}",
+                f"- 结尾锚点：{source_ref['end_preview'] or '无'}",
+                f"- 原生表格数：{source_ref['table_count']}",
+                f"- 媒体数：{source_ref['media_count']}",
+                f"- 公式数：{source_ref['formula_count']}",
                 f"- 置信度：{action['confidence']:.2f}",
                 f"- 预览：{action['preview']}",
                 "",

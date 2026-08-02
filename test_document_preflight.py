@@ -74,14 +74,37 @@ def test_build_preflight_bundle_is_read_only_and_maps_native_table(tmp_path: Pat
     assert bundle["profile"]["source"]["hash_verified_unchanged"] is True
     assert bundle["profile"]["native"]["table_count"] == 1
     assert bundle["profile"]["native"]["heading_count"] == 1
+    assert bundle["plan"]["schema_version"] == "1.1"
     assert bundle["plan"]["execution_enabled"] is False
     assert [action["question_ids"] for action in bundle["plan"]["actions"]] == [["1"], ["2"]]
-    assert bundle["plan"]["actions"][0]["source_ref"]["table_indexes"] == [1]
     assert bundle["plan"]["actions"][0]["source_ref"]["table_specs"] == [
         {"table_index": 1, "row_count": 2, "column_count": 2}
     ]
     assert bundle["plan"]["actions"][0]["source_ref"]["start_preview"] == "1．观察下表，选择正确答案。"
     assert bundle["plan"]["actions"][0]["source_ref"]["end_preview"] == "B．4元"
+    assert bundle["plan"]["actions"][0]["source_ref"]["table_count"] == 1
+    assert bundle["plan"]["actions"][0]["source_ref"]["media_count"] == 0
+    assert bundle["plan"]["actions"][0]["source_ref"]["formula_count"] == 0
+    assert not {
+        "virtual_node_start",
+        "virtual_node_end",
+        "paragraph_start",
+        "paragraph_end",
+        "media_paragraphs",
+        "formula_paragraphs",
+    } & bundle["plan"]["actions"][0]["source_ref"].keys()
+
+
+def test_preflight_prefers_subject_from_project_folder_name(tmp_path: Path) -> None:
+    project_dir = tmp_path / "莞美-高二-地理" / "题目（已拆分）"
+    project_dir.mkdir(parents=True)
+    source = project_dir / "课时分层作业5.docx"
+    _build_minimal_question_doc(source)
+
+    bundle = build_preflight_bundle(source, include_docling=False)
+
+    assert bundle["plan"]["actions"][0]["subject"] == "文科"
+    assert bundle["plan"]["actions"][0]["subject_overlay"] == "geography"
 
 
 def test_json_is_authoritative_and_markdown_is_generated(tmp_path: Path) -> None:

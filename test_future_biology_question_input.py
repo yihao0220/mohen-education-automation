@@ -236,4 +236,5 @@ def test_real_sample_action_plan_uses_biology_overlay_and_clean_boundaries() -> 
         if "题组" in action["preview"] or "非选择题" in action["preview"]
     ]
     action_eight = next(action for action in actions if action["question_ids"] == ["8"])
-    assert 43 not in action_eight["source_ref"]["media_paragraphs"]
+    assert action_eight["source_ref"]["media_count"] == 1
+    assert "media_paragraphs" not in action_eight["source_ref"]

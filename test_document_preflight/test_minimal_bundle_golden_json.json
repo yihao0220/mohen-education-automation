@@ -200,7 +200,7 @@
     "issues": []
   },
   "plan": {
-    "schema_version": "1.0",
+    "schema_version": "1.1",
     "generator": "mohen-document-preflight-poc",
     "source_name": "数学练习.docx",
     "source_sha256": "<SHA256>",
@@ -223,15 +223,9 @@
         "confidence": 1.0,
         "warnings": [],
         "source_ref": {
-          "virtual_node_start": 2,
-          "virtual_node_end": 4,
-          "paragraph_start": 2,
-          "paragraph_end": 4,
           "start_preview": "1．观察下表，选择正确答案。",
           "end_preview": "B．4元",
-          "table_indexes": [
-            1
-          ],
+          "table_count": 1,
           "table_specs": [
             {
               "table_index": 1,
@@ -239,8 +233,8 @@
               "column_count": 2
             }
           ],
-          "media_paragraphs": [],
-          "formula_paragraphs": []
+          "media_count": 0,
+          "formula_count": 0
         }
       },
       {
@@ -258,16 +252,12 @@
         "confidence": 1.0,
         "warnings": [],
         "source_ref": {
-          "virtual_node_start": 5,
-          "virtual_node_end": 6,
-          "paragraph_start": 5,
-          "paragraph_end": 6,
           "start_preview": "2．直接写出结果。",
           "end_preview": "3+4=____",
-          "table_indexes": [],
+          "table_count": 0,
           "table_specs": [],
-          "media_paragraphs": [],
-          "formula_paragraphs": []
+          "media_count": 0,
+          "formula_count": 0
         }
       }
     ],

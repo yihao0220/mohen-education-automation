@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-截至 2026-08-01，系统已形成四个业务入口，并新增三条不接管生产流程的 DOCX 只读分析旁路：
+截至 2026-08-02，系统已形成四个业务入口，并新增三条不接管生产流程的 DOCX 只读分析旁路：
 
 | 模块 | 入口 | 状态 | 说明 |
 |------|------|------|------|
@@ -17,7 +17,7 @@
 | 答案录入 | `答案录入/answer_input.py` | 稳定可用 | F2/F3/F4 自动录入，依赖审核状态文件 |
 | 莞美高二地理专项处理 | `tools/process_guanmei_geography.py` | 37 份题答离线验证通过；Windows WPS 待验证 | 拆分总题目、匹配三类答案、生成分段 F4 答案与 Windows 兼容交付包 |
 | DOCX 只读预检 | `tools/build_document_preflight.py` | PoC + P0 可用 | 生成 Profile 1.1、题内角色证据、Docling 对照和 F1 预演计划；固定不连接 WPS、不执行按键 |
-| F1 ActionPlan WPS 无按键预览 | `tools/preview_f1_action_plan.py` | 无表格单样本 Windows/WPS 8/8 通过；表格代表文档待 8/8 复验 | 内存生成 ActionPlan，绑定 WPS Range 并逐组等待人工确认；`keypress_count=0`，不按 F1；所有动作优先使用稳定开头锚点，含表格动作再用结尾锚点并校验表格数量 |
+| F1 ActionPlan WPS 无按键预览 | `tools/preview_f1_action_plan.py` | 无表格样本与含两张原生表格的代表样本均已完成 Windows/WPS 8/8 选区验收 | Source ActionPlan 不含 DOCX 段落号；开始人工确认前直接从当前 Windows WPS 绑定全部 `wps_ref`，校验顺序、唯一性和表格数量；`keypress_count=0`，不按 F1 |
 | F1 ActionPlan 受控试录 | `tools/execute_f1_action_plan.py` | 无表格地理样本 Windows/WPS 8/8 通过 | 只放行已完成选区验收的指定样本；默认只按 1 次 F1，每题需精确输入 `f1`，不保存；原生表格仍未放行 |
 | 文档族分析 | `tools/analyze_document_families.py` | P1a 可用 | 读取一批 Profile 1.1，生成候选文档族、代表样本、异常候选和人工复核队列；固定只作建议 |
 | 页面视觉预检 | `tools/build_document_render.py` | P1b 跨平台框架可用；生产批次待校准 | Mac 用 Quick Look 生成连续视觉预览；Windows 用 WPS COM 生成生产页面真值；52 份真实批次人工门禁尚未完成，两者均不执行 F1/F2/F3/F4 |
@@ -113,7 +113,7 @@ python .\答案录入\answer_input.py
 
 它只生成外部 `DocumentProfile.json`、`ActionPlan.json` 及派生 Markdown。当前 `DocumentProfile` schema 为 1.1，包含文档标题、板块标题、题内小标题、题号、选项、正文等角色及其置信度和证据。JSON 是机器权威事实，Markdown 只供人工审核；角色层固定 `automatic_exclusion_enabled=false`，动作计划固定 `execution_enabled=false`，不能自动获得生产执行权。
 
-Windows WPS 已打开待检查原题时，可运行 `.\.venv\Scripts\python.exe .\tools\preview_f1_action_plan.py`。它会在内存中生成 ActionPlan，依次框选预计的 F1 题块并等待人工确认；不会按 F1，也不会修改原题。2026-08-01 以莞美高二地理《课时分层作业1》试点，8 个题块的 Windows/WPS 真实选区全部通过，期间修正了 WPS 文字表示差异和“素养培优练”题间图片标题边界。同日受控执行全部 8 组，`selected_actions=8`、`executed_actions=8`、`keypress_count=8`，用户确认插件临时题目全部正确。含原生表格的 ActionPlan 已增加开头/结尾锚点和表格数量检查；短材料后接 WPS `/题号` 时也统一只用稳定材料开头定位，仍需重新完成表格代表文档的 Windows 8/8 无按键验收。
+Windows WPS 已打开待检查原题时，可运行 `.\.venv\Scripts\python.exe .\tools\preview_f1_action_plan.py`。它先生成不含 DOCX 段落号的 Source ActionPlan，再从当前 Windows WPS 一次性绑定全部 `wps_ref`；8/8 绑定成功后才依次框选并等待人工确认，不会按 F1，也不会修改原题。2026-08-01 莞美高二地理《课时分层作业1》完成 8/8 WPS 选区与受控 F1；2026-08-02 含两张原生表格的《课时分层作业5》也由用户确认 8/8 选区全部正确。该结果只覆盖两个代表样本，不放开 37 份全批生产。
 
 对这份已完成 8/8 选区验收的《课时分层作业1》，可进入受控 F1 试录：
 

@@ -15,6 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from shared_core.cli_output import configure_utf8_stdio
 from shared_core.document_preflight import build_preflight_bundle
 from tools.preview_f1_action_plan import (
+    bind_action_plan_to_wps,
     get_active_document,
     select_action_range,
     validate_preview_plan,
@@ -171,12 +172,13 @@ def main() -> int:
     plan = bundle["plan"]
     validate_preview_plan(plan)
     validate_execution_profile(bundle["profile"])
+    bound_plan = bind_action_plan_to_wps(doc, plan)
 
     action_limit = None if args.all else 1
     mode_text = "全部题组" if args.all else "第 1 个题组试录"
     phrase = "执行全部F1" if args.all else "执行首题F1"
     print(f"当前文档：{doc.Name}")
-    print(f"已生成 {len(plan['actions'])} 个 F1 动作，本次：{mode_text}。")
+    print(f"已生成并绑定 {len(bound_plan['actions'])} 个 F1 动作，本次：{mode_text}。")
     print("不会保存 WPS 文档；插件中是否最终保存仍由人工决定。")
     if input(f"请输入“{phrase}”继续，其他输入退出：").strip() != phrase:
         print("已退出，未按 F1。")
@@ -184,7 +186,7 @@ def main() -> int:
 
     receipt = execute_actions(
         doc,
-        plan,
+        bound_plan,
         max_actions=action_limit,
         press_f1=_press_f1,
     )
