@@ -7,6 +7,10 @@ description: 墨痕教育 DOCX 只读预检链路（P0 画像 / P1a 文档族 / 
 
 预检链路**完全不接管生产流程**：不连接 WPS 执行按键，不改写原题。它的全部产出都是"建议"和"证据"，能不能升级为执行由安全开关决定。
 
+`tools/preview_f1_action_plan.py` 是预检之外的 WPS Range 无按键绑定试点：它可连接当前 WPS 原题并选区，但永远不执行 F1，回执必须保持 `keypress_count=0`。不得把它说成生产执行器。
+
+`tools/execute_f1_action_plan.py` 是独立的单样本受控执行试点，不改动预检安全开关。它只允许已完成 WPS Range 验收的指定源哈希，默认只执行一题，并要求启动确认、每题精确 `f1` 确认和按键后人工检查。2026-08-01 莞美高二地理无表格样本完成 8/8 真实 F1；该证据不放开表格和其他文档家族。
+
 ## 三条旁路
 
 | 阶段 | 入口 | 产出 | 当前定位 |
@@ -15,13 +19,30 @@ description: 墨痕教育 DOCX 只读预检链路（P0 画像 / P1a 文档族 / 
 | P1a | `tools/analyze_document_families.py` | `DocumentFamilyReport.json/.md` | 只作批次建议 |
 | P1b | `tools/build_document_render.py`、`tools/prepare_p1b_wps_batch.py` | `PageRenderManifest.json`、页面 PNG、`VisualRoleReview.json`、校准报告、`BatchSourceManifest.json` | 跨平台框架可用，生产批次待校准 |
 
+## F1 ActionPlan → WPS Range 无按键试点
+
+- 只允许 `mode=preview_only` 且 `execution_enabled=false` 的 F1 ActionPlan。
+- 只选区并等待人工确认，不导入或调用按键自动化；中途输入 `s` 可安全停止。
+- 先用计划段落定位；WPS 文字表示不同时，所有动作统一优先使用 ActionPlan 的 `start_preview` 在整篇内寻找唯一选区。旧计划没有该字段时，若 `preview` 以“完成/回答 X～Y 题”材料句开头，只取材料句作锚点，不拼接后续题号；其他旧格式才回退到原 `preview`。找不到或有多个候选时继续阻断，不猜。
+- 含原生表格的动作不使用固定段落长度；改用 ActionPlan 开头/结尾锚点夹住 WPS Range，并校验选区表格数量。该路径离线开发完成，Windows 8/8 验收待执行。
+- 2026-08-01 的单样本 Windows/WPS 验收为 8/8 选区通过，但没有按 F1；这只缩小了 WPS Range 绑定的缺口，不改变生产开关。
+
 具体命令行参数以脚本 `--help` 和 `README.md` 为准，不要在本文件里维护第二份命令清单。
+
+## F1 受控执行试点
+
+- ActionPlan 仍保持 `mode=preview_only` 和 `execution_enabled=false`；这份 JSON 本身不授权按键。
+- 只有执行器内置的已批准源 SHA256 可进入试录；不认文件名或路径。
+- 默认只执行第 1 个动作；`--all` 仍要求每题手工输入 `f1`。
+- 控制台输入后必须重新激活 WPS 窗口并恢复选区，再按一次 F1；按键后等待人工检查插件临时结果。
+- 未保存文档、非批准哈希和原生表格文档继续阻断。
+- 执行器不调用 WPS 保存；插件内容是否最终保存由人工决定。
 
 ## 安全开关（全部为 false，不得绕过）
 
 | 开关 | 值 | 含义 |
 |---|---|---|
-| `execution_enabled` | `false` | 动作计划不得改成真实 F1/F2/F3/F4 执行。要放开必须先完成 WPS Range 绑定、审核门禁和受控执行器。 |
+| `execution_enabled` | `false` | ActionPlan 本身不授权真实 F1/F2/F3/F4。单样本只能经独立受控执行器、批准哈希和逐题人工确认试录；不得因此放开批量生产。 |
 | `automatic_exclusion_enabled` | `false` | Profile 1.1 的题内角色**只作证据**，不得绕过文档族阈值和审核门禁直接删段落。 |
 | `classification_mode` | `advisory_only` | 候选文档族只是建议。 |
 | `automatic_rule_binding_enabled` | `false` | 候选文档族不得直接绑定到生产规则。 |

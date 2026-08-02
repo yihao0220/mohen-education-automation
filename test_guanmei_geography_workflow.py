@@ -11,7 +11,14 @@ from docx import Document
 from docx.shared import Cm
 from lxml import etree as ET
 
-from shared_core import build_answer_units_from_docx, get_review_gate_result
+from shared_core import (
+    DocNode,
+    build_answer_units_from_docx,
+    build_question_units_from_nodes,
+    classify_media_hashes_for_context,
+    detect_subject_overlay,
+    get_review_gate_result,
+)
 from tools.process_guanmei_geography import (
     PAGE_MARGIN_TWIPS,
     _page_margins_twips,
@@ -29,6 +36,9 @@ TINY_PNG = (
     b"\xfe\x02\xfeA\xe2)\xb7\x00\x00\x00\x00IEND\xaeB`\x82"
 )
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+GUANMEI_GEOGRAPHY_EXERCISE_LABEL_SHA256 = (
+    "069513851349de79612e6f3b0525bd5756f20ae9788146576620735224f8fb83"
+)
 
 
 def _digest(path: Path) -> str:
@@ -161,6 +171,63 @@ class GuanmeiGeographyQuestionSplitTests(unittest.TestCase):
                 (PAGE_MARGIN_TWIPS,) * 4,
             )
             self.assertEqual(results[0].question_count, 2)
+
+
+class GuanmeiGeographyActionPlanTests(unittest.TestCase):
+    def test_geography_content_detection_covers_rotation_and_revolution_lesson(self):
+        self.assertEqual(
+            detect_subject_overlay(
+                "课时分层作业1.docx",
+                "地球的自转和公转 恒星视运动",
+                base_subject="文科",
+            ),
+            "geography",
+        )
+
+    def test_exercise_label_ends_question_without_removing_question_image(self):
+        nodes = [
+            DocNode(1, "9．(10分)下图是地球公转轨道平面图。读图，完成下列要求。"),
+            DocNode(
+                2,
+                "",
+                has_inline_media=True,
+                metadata={"media_sha256": ["question-image"]},
+            ),
+            DocNode(3, "(1)在公转轨道上用箭头标出地球公转方向。"),
+            DocNode(4, "(4)比较公转速度。"),
+            DocNode(
+                5,
+                "",
+                has_inline_media=True,
+                metadata={
+                    "media_sha256": [GUANMEI_GEOGRAPHY_EXERCISE_LABEL_SHA256]
+                },
+            ),
+            DocNode(6, "下图为某摄影师拍摄的恒星轨迹。据此完成10～11题。"),
+            DocNode(7, "10．据图判断拍摄地点。"),
+            DocNode(8, "A．甲 B．乙"),
+            DocNode(9, "11．判断拍摄时长。"),
+            DocNode(10, "A．甲 B．乙"),
+        ]
+
+        units = build_question_units_from_nodes(
+            "课时分层作业1.docx",
+            "文科",
+            nodes,
+            overlay_name="geography",
+        )
+
+        self.assertEqual(
+            classify_media_hashes_for_context(
+                [GUANMEI_GEOGRAPHY_EXERCISE_LABEL_SHA256],
+                "geography",
+            ),
+            "exercise_label",
+        )
+        self.assertEqual(units[0].question_id, "9")
+        self.assertEqual(units[0].source_span, (1, 4))
+        self.assertEqual(units[0].media_blocks, [2])
+        self.assertEqual(units[1].question_id, "10")
 
 
 class GuanmeiGeographyAnswerCleanTests(unittest.TestCase):

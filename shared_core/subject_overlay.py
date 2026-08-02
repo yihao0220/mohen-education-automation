@@ -23,6 +23,8 @@ GEOGRAPHY_KEYWORDS = (
     "西藏",
     "鱼龙化石",
     "波斯湾",
+    "自转",
+    "公转",
     "地理",
 )
 
@@ -203,6 +205,11 @@ GEOGRAPHY_OVERLAY = SubjectOverlay(
         "限训12.docx",
         "限训16：6.14.docx",
     ),
+    excluded_media_sha256_by_role={
+        "exercise_label": (
+            "069513851349de79612e6f3b0525bd5756f20ae9788146576620735224f8fb83",
+        ),
+    },
 )
 
 

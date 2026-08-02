@@ -268,6 +268,11 @@ def _compile_actions(path: Path, nodes: list, native: dict[str, Any]) -> tuple[l
             paragraph_indexes = [unit.source_span[0], unit.source_span[1]]
         paragraph_start = min(paragraph_indexes)
         paragraph_end = max(paragraph_indexes)
+        selected_texts = [
+            node.text.strip()
+            for node in selected_nodes
+            if isinstance(node.text, str) and node.text.strip()
+        ]
         media_paragraphs = [
             index
             for index in native["media_paragraphs"]
@@ -277,6 +282,18 @@ def _compile_actions(path: Path, nodes: list, native: dict[str, Any]) -> tuple[l
             index
             for index in native["formula_paragraphs"]
             if paragraph_start <= index <= paragraph_end
+        ]
+        table_indexes = _tables_for_paragraph_span(
+            native["table_anchors"], paragraph_start, paragraph_end
+        )
+        table_specs = [
+            {
+                "table_index": anchor["table_index"],
+                "row_count": anchor["row_count"],
+                "column_count": anchor["column_count"],
+            }
+            for anchor in native["table_anchors"]
+            if anchor["table_index"] in table_indexes
         ]
         actions.append(
             {
@@ -296,9 +313,10 @@ def _compile_actions(path: Path, nodes: list, native: dict[str, Any]) -> tuple[l
                     "virtual_node_end": unit.source_span[1],
                     "paragraph_start": paragraph_start,
                     "paragraph_end": paragraph_end,
-                    "table_indexes": _tables_for_paragraph_span(
-                        native["table_anchors"], paragraph_start, paragraph_end
-                    ),
+                    "start_preview": selected_texts[0][:160] if selected_texts else "",
+                    "end_preview": selected_texts[-1][:160] if selected_texts else "",
+                    "table_indexes": table_indexes,
+                    "table_specs": table_specs,
                     "media_paragraphs": media_paragraphs,
                     "formula_paragraphs": formula_paragraphs,
                 },

@@ -227,8 +227,17 @@
           "virtual_node_end": 4,
           "paragraph_start": 2,
           "paragraph_end": 4,
+          "start_preview": "1．观察下表，选择正确答案。",
+          "end_preview": "B．4元",
           "table_indexes": [
             1
+          ],
+          "table_specs": [
+            {
+              "table_index": 1,
+              "row_count": 2,
+              "column_count": 2
+            }
           ],
           "media_paragraphs": [],
           "formula_paragraphs": []
@@ -253,7 +262,10 @@
           "virtual_node_end": 6,
           "paragraph_start": 5,
           "paragraph_end": 6,
+          "start_preview": "2．直接写出结果。",
+          "end_preview": "3+4=____",
           "table_indexes": [],
+          "table_specs": [],
           "media_paragraphs": [],
           "formula_paragraphs": []
         }

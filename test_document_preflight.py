@@ -77,6 +77,11 @@ def test_build_preflight_bundle_is_read_only_and_maps_native_table(tmp_path: Pat
     assert bundle["plan"]["execution_enabled"] is False
     assert [action["question_ids"] for action in bundle["plan"]["actions"]] == [["1"], ["2"]]
     assert bundle["plan"]["actions"][0]["source_ref"]["table_indexes"] == [1]
+    assert bundle["plan"]["actions"][0]["source_ref"]["table_specs"] == [
+        {"table_index": 1, "row_count": 2, "column_count": 2}
+    ]
+    assert bundle["plan"]["actions"][0]["source_ref"]["start_preview"] == "1．观察下表，选择正确答案。"
+    assert bundle["plan"]["actions"][0]["source_ref"]["end_preview"] == "B．4元"
 
 
 def test_json_is_authoritative_and_markdown_is_generated(tmp_path: Path) -> None:
