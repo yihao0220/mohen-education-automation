@@ -16,10 +16,10 @@
 ## L3 改动与验证
 
 - 新包使用纯英文包名和顶层目录名，由 Python `zipfile` 写入。
-- 校验 155 个中文条目均带 UTF-8 标记 `0x800`，并确认 `墨痕快刀/wps_helper.py` 能以原名解压。
-- 解压后定向测试 30 项通过；核心 Python 文件编译通过；包内不含 `.git`、`.venv`、`.env`、缓存、认证文件或 sqlite 状态库。
-- 新包：`mohen-windows-subject-routing-20260802-utf8.zip`
-- SHA256：`7c4c9cb63820b5ba0a87daf5796fd7a74f348ac89edb3c2311e5d29cf2edcfcb`
+- 最终包共 268 个条目，其中 157 个中文条目均带 UTF-8 标记 `0x800`；CRC 检查无坏文件，并确认 `墨痕快刀/wps_helper.py` 以原名存在。
+- 解压后核心定向测试 33 项通过；核心 Python 文件编译通过；包内不含 `.git`、`.venv`、`.env`、缓存、认证文件或 sqlite 状态库。
+- 最终包：`mohen-windows-wps-bound-plan-20260802-utf8.zip`
+- SHA256：`8f95de8e2bc5f25f1ce05f90631464fc6f0e12cae3c2bc43c1258606fbc342a5`
 
 ## L4 边界与复用
 
