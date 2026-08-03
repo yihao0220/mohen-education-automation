@@ -26,7 +26,6 @@ sys.modules.setdefault("wps_helper", SimpleNamespace(get_active_wps=lambda: None
 
 from 答案录入 import answer_input
 from 墨痕快刀 import core_parser
-import main as controller_main
 from tools.clean_zhongmei_physics_answers import (
     normalize_answer_docx,
     preflight_project,
@@ -156,16 +155,6 @@ class ZhongmeiPhysicsQuestionRuleTests(unittest.TestCase):
                 obstacle_type,
             )
         )
-
-    def test_workspace_key_ignores_blank_paper_prefix(self):
-        question = controller_main._normalize_workspace_key(
-            "【空白试卷】第1课时 运动的描述 课时精练.docx"
-        )
-        answer = controller_main._normalize_workspace_key(
-            "第1课时 运动的描述 课时精练_已清洗.docx"
-        )
-        self.assertEqual(question, answer)
-
 
 class ZhongmeiPhysicsAnswerCleanerTests(unittest.TestCase):
     def test_extracts_only_rich_answer_blocks_and_preserves_source(self):

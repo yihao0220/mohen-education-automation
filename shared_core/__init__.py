@@ -15,6 +15,7 @@ from .answer_core import (
 )
 from .review import build_review_report, export_review_report, format_question_warning_details
 from .review_gate import (
+    apply_review_report_decision,
     derive_review_status_path,
     format_review_gate_message,
     get_review_gate_result,
@@ -53,6 +54,7 @@ __all__ = [
     "build_question_units_from_wps",
     "build_question_units_from_wps_spans",
     "build_review_report",
+    "apply_review_report_decision",
     "build_preflight_bundle",
     "choose_strategy",
     "classify_inter_question_media_boundary_for_context",

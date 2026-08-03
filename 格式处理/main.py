@@ -39,6 +39,7 @@ except ImportError:
     from 格式模板库 import template_a, template_b, template_c, template_d, template_e, template_chinese, template_math, template_future_physics, template_future_history, template_nancheng_math
 
 from shared_core import (
+    apply_review_report_decision,
     build_answer_units_from_docx,
     build_question_units_from_docx,
     build_review_report,
@@ -114,9 +115,9 @@ def _find_matching_question_doc(answer_filename, question_dir):
 
 def _generate_review_report_if_possible(question_doc_path, answer_doc_path):
     if not question_doc_path or not os.path.exists(question_doc_path):
-        return None, None
+        return None, None, None
     if not answer_doc_path or not os.path.exists(answer_doc_path):
-        return None, None
+        return None, None, None
 
     try:
         question_units = build_question_units_from_docx(question_doc_path)
@@ -124,23 +125,30 @@ def _generate_review_report_if_possible(question_doc_path, answer_doc_path):
         answer_units = map_answers(question_units, raw_answer_units)
     except ValueError as exc:
         print(f"⚠️ 审核清单跳过: {exc}")
-        return None, None
+        return None, None, None
 
     report = build_review_report(os.path.basename(answer_doc_path), question_units, answer_units)
     base_name = os.path.splitext(answer_doc_path)[0]
     report_path = f"{base_name}_审核清单.md"
     export_review_report(report, report_path)
-    return report_path, report
+    status_path = apply_review_report_decision(
+        answer_doc_path,
+        report,
+        report_path=report_path,
+    )
+    return report_path, report, status_path
 
 
 def _has_blocking_review_issues(report) -> bool:
     return bool(report and any(issue.severity == "error" for issue in report.issues))
 
 
-def _print_review_gate_status(report_path, report):
+def _print_review_gate_status(report_path, report, status_path):
     if not report_path:
         return
     print(f"📝 已生成审核清单: {os.path.basename(report_path)}")
+    if status_path:
+        print(f"🛂 已更新审核状态: {os.path.basename(status_path)}")
     if _has_blocking_review_issues(report):
         print("⚠️ 审核未通过：检测到高风险问题，请先处理审核清单，不建议直接录入。")
     else:
@@ -550,8 +558,11 @@ def process_wps_document(doc, wps, question_doc_path=None):
                         print(f"⚠️ 重载标准答案文档失败: {reopen_exc}")
             else:
                 print("⚠️ 当前模板检测到公式/图片承载需求，已跳过题答重写，避免清洗后富文本丢失。")
-            report_path, report = _generate_review_report_if_possible(question_doc_path, output_path)
-            _print_review_gate_status(report_path, report)
+            report_path, report, status_path = _generate_review_report_if_possible(
+                question_doc_path,
+                output_path,
+            )
+            _print_review_gate_status(report_path, report, status_path)
             
             # 询问是否关闭原文档
             print("\n📝 原文档仍保持打开状态")
@@ -690,8 +701,11 @@ def process_folder_files(files, input_dir, question_dir=None):
                     _align_cleaned_doc_with_question_doc(question_doc_path, output_path)
                 else:
                     print("⚠️ 当前模板检测到公式/图片承载需求，已跳过题答重写，避免清洗后富文本丢失。")
-                report_path, report = _generate_review_report_if_possible(question_doc_path, output_path)
-                _print_review_gate_status(report_path, report)
+                report_path, report, status_path = _generate_review_report_if_possible(
+                    question_doc_path,
+                    output_path,
+                )
+                _print_review_gate_status(report_path, report, status_path)
                 processed += 1
             else:
                 print(f"\n❌ 清洗失败: {filename}")

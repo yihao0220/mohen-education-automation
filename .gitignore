@@ -60,7 +60,7 @@ nul
 *.tif
 *.tiff
 
-# Per-machine workspace paths
+# Retired controller's legacy local path file; keep user data untracked
 工作台路径配置.json
 
 # Historical one-off prompt containing source exercise text

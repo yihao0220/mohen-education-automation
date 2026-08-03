@@ -400,7 +400,7 @@ def execute_input_from_units(doc, wps, units, start_idx, end_idx, strict=True):
         preview = "、".join(unit.question_id for unit in blocking_units[:5])
         raise ValueError(
             f"检测到 {len(blocking_units)} 个高风险答案块，默认拒绝直接录入。"
-            f" 题号示例: {preview}。请先走总控入口的清洗+自动检查流程。"
+            f" 题号示例: {preview}。请先运行答案格式清洗脚本，并让自动检查通过。"
         )
 
     if not any(_requires_contiguous_input_document(unit) for unit in units):
@@ -746,7 +746,7 @@ def main():
         risky_blocks = [b for b in blocks if b["confidence"] < 0.75 or b["review_flags"]]
         if risky_blocks:
             print("\n⚠️ 当前文档仍包含高风险答案块，默认不建议直接录入。")
-            print("   请优先使用项目根目录 main.py 总控入口执行“只做答案清洗+自动检查”或“全流程录入”。")
+            print("   请先运行 格式处理/main.py 重新清洗，并让自动检查通过。")
             print(f"   风险题号示例: {', '.join(b['qnum'] for b in risky_blocks[:5])}")
 
         while True:

@@ -108,6 +108,30 @@ def update_review_status(
     return _write_status_file(status_path, current)
 
 
+def apply_review_report_decision(
+    answer_doc_path: str | Path,
+    report,
+    *,
+    report_path: str | None = None,
+    reviewer: str = "system",
+) -> str:
+    """根据自动审核报告初始化并更新与答案文件绑定的审核状态。"""
+    initialize_review_status(
+        answer_doc_path,
+        report_path=report_path,
+        report=report,
+    )
+    has_blocking_issues = any(
+        issue.severity == "error" for issue in getattr(report, "issues", [])
+    )
+    return update_review_status(
+        answer_doc_path,
+        status="rejected" if has_blocking_issues else "approved",
+        reviewer=reviewer,
+        note="自动检查未通过" if has_blocking_issues else "自动检查通过",
+    )
+
+
 def get_review_gate_result(answer_doc_path: str | Path) -> dict:
     answer_path = Path(answer_doc_path)
     status_path = Path(derive_review_status_path(answer_path))

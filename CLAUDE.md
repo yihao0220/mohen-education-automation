@@ -76,5 +76,5 @@ WPS「墨痕题库」插件的自动化录入工具链。三步流程：题目�
 
 - Mac 开发：`/Users/xiaosheng/工作/全局工作区/40_事业与收入/墨痕教育`
 - Windows 生产：`E:\CODEX.projection\墨痕教育`（独立仓库）。执行 `pull/reset/clean/stash` 前必须确认 `git rev-parse --show-toplevel` 严格等于该目录；旧目录 `E:\PYTHON\practice\墨痕教育` 属于上级仓库，不得在其中执行本项目的覆盖命令。日常更新用 `git pull --ff-only origin main`，`git status --short` 非空时停止并保留现场。
-- 原题、答案、P1b 产物、页面截图、JSON 批次产物一律在仓库之外；两台机器各自通过 `工作台路径配置.json` 指向本机业务目录。
+- 原题、答案、P1b 产物、页面截图、JSON 批次产物一律在仓库之外；运行各直接入口或专项工具时，显式选择当前机器上的业务文档或目录，仓库不保存个人业务路径。
 - `.qoder/repowiki/` 是本地生成快照，不是事实来源。与本文件冲突时以本文件为准。
