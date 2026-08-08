@@ -12,7 +12,9 @@ from .subject_overlay import (
     classify_media_hashes_for_context,
     choose_strategy_for_context,
     detect_subject_overlay,
+    extract_additional_question_id_for_context,
     get_subject_overlay,
+    is_additional_question_start_for_context,
     is_leading_context_group_boundary_for_context,
     is_leading_context_start_for_context,
     is_numbered_intro_for_context,
@@ -35,6 +37,48 @@ EMBEDDED_DOCX_QUESTION_SPLIT_PATTERN = re.compile(
 )
 INLINE_SUBQUESTION_SPLIT_PATTERN = re.compile(r"([（(]\s*\d{1,2}\s*[）)])")
 INLINE_FIRST_SUBQUESTION_PATTERN = re.compile(r"[（(]\s*1\s*[）)]")
+FOLDER_SUBJECT_HINTS: tuple[tuple[str, str], ...] = (
+    ("道德与法治", "文科"),
+    ("语文", "文科"),
+    ("数学", "理科"),
+    ("英语", "英语"),
+    ("物理", "理科"),
+    ("化学", "理科"),
+    ("生物", "理科"),
+    ("历史", "文科"),
+    ("地理", "文科"),
+    ("政治", "文科"),
+)
+
+
+def resolve_subject_from_project_folder(
+    docx_path: str | Path,
+    sample_text: str = "",
+) -> tuple[str, str | None] | None:
+    """项目文件夹名是人工确定的学科事实，优先于正文猜测。"""
+
+    path = Path(docx_path)
+    for parent in path.parents:
+        matched_hints = [
+            (keyword, subject)
+            for keyword, subject in FOLDER_SUBJECT_HINTS
+            if keyword in parent.name
+        ]
+        if len(matched_hints) == 1:
+            folder_subject = matched_hints[0][1]
+            overlay_name = detect_subject_overlay(
+                parent.name,
+                "",
+                base_subject=folder_subject,
+            ) or detect_subject_overlay(
+                f"{parent.name}/{path.name}",
+                sample_text,
+                base_subject=folder_subject,
+            )
+            return folder_subject, overlay_name
+        if len(matched_hints) > 1:
+            return None
+    return None
 
 
 def _make_warning_slug(message: str) -> str:
@@ -94,6 +138,7 @@ def _resolve_unit_question_id(
     start_idx: int,
     end_idx: int,
     strategy: BaseStrategy,
+    overlay_name: str | None = None,
 ) -> str | None:
     if q_node.get("type") in {"READING", "LEADING_CONTEXT"}:
         current_text = q_node.get("text", "")
@@ -104,6 +149,12 @@ def _resolve_unit_question_id(
         )
         if current_normalized:
             return current_normalized
+        current_additional = extract_additional_question_id_for_context(
+            current_text,
+            overlay_name,
+        )
+        if current_additional:
+            return current_additional
         for idx in range(start_idx + 1, end_idx + 1):
             node = nodes_by_index.get(idx)
             if not node:
@@ -115,11 +166,20 @@ def _resolve_unit_question_id(
                 normalized = extract_normalized_question_id(text)
                 if normalized:
                     return normalized
+            additional = extract_additional_question_id_for_context(text, overlay_name)
+            if additional:
+                return additional
         return None
 
     normalized = extract_normalized_question_id(q_node.get("text", ""))
     if normalized:
         return normalized
+    additional = extract_additional_question_id_for_context(
+        q_node.get("text", ""),
+        overlay_name,
+    )
+    if additional:
+        return additional
     return strategy.extract_question_id(q_node.get("text", ""))
 
 
@@ -405,6 +465,7 @@ def _detect_raw_starts(
     overlay_name: str | None = None,
 ) -> list[dict]:
     raw_starts: list[dict] = []
+    overlay = get_subject_overlay(overlay_name)
     for node in nodes:
         if node.metadata.get("in_table"):
             continue
@@ -419,9 +480,20 @@ def _detect_raw_starts(
             continue
         if should_skip_question_start_for_context(text, overlay_name):
             continue
-        if strategy.is_material_line(text):
+        is_numbered_question = (
+            strategy.is_question_start(text)
+            or is_additional_question_start_for_context(text, overlay_name)
+        ) and not strategy.is_option_line(text)
+        if (
+            is_numbered_question
+            and overlay
+            and overlay.numbered_material_question_is_std
+        ):
+            node_type = "SUBQUESTION" if strategy.is_subquestion_line(text) else "STD"
+            raw_starts.append({"idx": node.index, "type": node_type, "text": text})
+        elif strategy.is_material_line(text):
             raw_starts.append({"idx": node.index, "type": "READING", "text": text})
-        elif strategy.is_question_start(text) and not strategy.is_option_line(text):
+        elif is_numbered_question:
             node_type = "SUBQUESTION" if strategy.is_subquestion_line(text) else "STD"
             raw_starts.append({"idx": node.index, "type": node_type, "text": text})
     return raw_starts
@@ -431,6 +503,7 @@ def _merge_raw_starts(
     raw_starts: list[dict],
     strategy: BaseStrategy,
     group_leading_context_questions: bool = False,
+    unranged_material_groups_single_question: bool = False,
 ) -> list[dict]:
     if not raw_starts:
         return []
@@ -497,8 +570,20 @@ def _merge_raw_starts(
                         continue
                     break
             else:
-                while pointer < len(raw_starts) and raw_starts[pointer]["type"] != "READING":
-                    pointer += 1
+                if unranged_material_groups_single_question:
+                    if pointer < len(raw_starts) and raw_starts[pointer]["type"] not in {
+                        "READING",
+                        "GROUP_BOUNDARY",
+                    }:
+                        pointer += 1
+                        while (
+                            pointer < len(raw_starts)
+                            and raw_starts[pointer]["type"] == "SUBQUESTION"
+                        ):
+                            pointer += 1
+                else:
+                    while pointer < len(raw_starts) and raw_starts[pointer]["type"] != "READING":
+                        pointer += 1
             continue
         if current["type"] == "STD":
             pointer += 1
@@ -529,6 +614,9 @@ def build_question_units_from_nodes(
         strategy,
         group_leading_context_questions=bool(
             overlay and overlay.group_leading_context_questions
+        ),
+        unranged_material_groups_single_question=bool(
+            overlay and overlay.unranged_material_groups_single_question
         ),
     )
     if not q_nodes:
@@ -579,7 +667,14 @@ def build_question_units_from_wps_spans(
                     end_idx = boundary_idx - 1
                     break
 
-        qid = _resolve_unit_question_id(q_node, nodes_by_index, start_idx, end_idx, strategy)
+        qid = _resolve_unit_question_id(
+            q_node,
+            nodes_by_index,
+            start_idx,
+            end_idx,
+            strategy,
+            overlay_name=overlay_name,
+        )
         if not qid:
             continue
 
@@ -642,6 +737,17 @@ def build_question_units_from_docx(docx_path: str | Path, grade_hint: str | None
         return []
     doc_name = Path(docx_path).name
     sample_text = " ".join(node.text for node in nodes[:20])
+    folder_subject = resolve_subject_from_project_folder(docx_path, sample_text)
+    if folder_subject:
+        subject_name, overlay_name = folder_subject
+        return build_question_units_from_nodes(
+            doc_name,
+            subject_name,
+            nodes,
+            grade_hint=grade_hint,
+            overlay_name=overlay_name,
+        )
+
     overlay_name = detect_subject_overlay(doc_name, sample_text, base_subject="文科")
     if overlay_name is None:
         overlay_name = detect_subject_overlay(doc_name, sample_text, base_subject="理科")

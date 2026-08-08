@@ -102,6 +102,9 @@ class SubjectOverlay:
     group_leading_context_questions: bool = False
     leading_context_group_boundary_patterns: tuple[str, ...] = ()
     question_input_excluded_patterns: tuple[str, ...] = ()
+    additional_question_start_patterns: tuple[str, ...] = ()
+    numbered_material_question_is_std: bool = False
+    unranged_material_groups_single_question: bool = False
     excluded_media_sha256_by_role: dict[str, tuple[str, ...]] = field(default_factory=dict)
     inferred_inter_question_media_role: str | None = None
     warning_details: dict[str, str] = field(default_factory=dict)
@@ -241,6 +244,36 @@ HISTORY_OVERLAY = SubjectOverlay(
 )
 
 
+FUTURE_POLITICS_INPUT_HEADING_PATTERNS = (
+    r"^\s*基础过关练\s*$",
+    r"^\s*考点\s*\d+.*$",
+    r"^\s*题组[一二三四五六七八九十百\d]+(?:\s|　)+.+$",
+    r"^\s*易错点\s*[一二三四五六七八九十百\d]+(?:\s|　)*.+$",
+)
+
+
+FUTURE_POLITICS_OVERLAY = SubjectOverlay(
+    name="future_politics",
+    base_subject="文科",
+    doc_name_keywords=("未来-高二-政治",),
+    content_keywords=(
+        "国体与政体",
+        "国家主权",
+        "世界多极化",
+        "经济全球化",
+        "国际组织",
+    ),
+    min_keyword_hits=2,
+    span_boundary_patterns=FUTURE_POLITICS_INPUT_HEADING_PATTERNS,
+    question_input_excluded_patterns=FUTURE_POLITICS_INPUT_HEADING_PATTERNS,
+    additional_question_start_patterns=(
+        r"^\s*(\d{1,2})\s*(?=(?:下表|近年来[,，]))",
+    ),
+    numbered_material_question_is_std=True,
+    unranged_material_groups_single_question=True,
+)
+
+
 QINGYAN_MATH_OVERLAY = SubjectOverlay(
     name="qingyan_math",
     base_subject="理科",
@@ -342,6 +375,7 @@ FUTURE_BIOLOGY_OVERLAY = SubjectOverlay(
 REGISTERED_OVERLAYS: tuple[SubjectOverlay, ...] = (
     ZHONGMEI_CHINESE_OVERLAY,
     HISTORY_OVERLAY,
+    FUTURE_POLITICS_OVERLAY,
     GEOGRAPHY_OVERLAY,
     QINGYAN_MATH_OVERLAY,
     FUTURE_BIOLOGY_OVERLAY,
@@ -436,6 +470,27 @@ def is_question_input_excluded_for_context(
             (text or "").strip(),
         )
     )
+
+
+def extract_additional_question_id_for_context(
+    text: str,
+    overlay_name: str | None = None,
+) -> str | None:
+    overlay = get_subject_overlay(overlay_name)
+    if not overlay:
+        return None
+    for pattern in overlay.additional_question_start_patterns:
+        match = re.match(pattern, text or "")
+        if match:
+            return match.group(1)
+    return None
+
+
+def is_additional_question_start_for_context(
+    text: str,
+    overlay_name: str | None = None,
+) -> bool:
+    return extract_additional_question_id_for_context(text, overlay_name) is not None
 
 
 def is_numbered_intro_for_context(text: str, overlay_name: str | None = None) -> bool:
