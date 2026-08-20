@@ -31,7 +31,6 @@ def debug_log(msg, level="info"):
         "split": "   ✂️ ",
         "match": "   ✅ ",
         "fill": "   📝 ",
-        "llm": "   🤖 ",
         "json": "   📦 ",
         "action": "   🔨 ",
         "error": "   ❌ ",
@@ -83,5 +82,4 @@ def set_document_font(doc):
     except Exception as e:
         debug_log(f"设置字体样式失败: {e}", "error")
         return False
-
 

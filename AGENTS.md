@@ -20,7 +20,7 @@
 | 语言 | Python 3.x |
 | 核心依赖 | `pywin32`、`pyautogui`、`python-docx` |
 | 预检 PoC 可选依赖 | `docling`、`pytest-regressions`，见 `requirements-poc.txt` |
-| 外部服务 | DeepSeek-V3 API（硅基流动，可选） |
+| 外部服务 | 无（当前生产链不依赖外部 AI 服务） |
 | 控制方式 | WPS COM 接口 + 模拟按键 |
 
 ---
