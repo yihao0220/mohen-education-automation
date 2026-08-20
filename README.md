@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-截至 2026-08-01，系统已形成四个业务入口，并新增三条不接管生产流程的 DOCX 只读分析旁路：
+截至 2026-08-20，系统已形成四个业务入口，并新增四条不接管生产流程的只读/影子旁路：
 
 | 模块 | 入口 | 状态 | 说明 |
 |------|------|------|------|
@@ -19,6 +19,7 @@
 | DOCX 只读预检 | `tools/build_document_preflight.py` | PoC + P0 可用 | 生成 Profile 1.1、题内角色证据、Docling 对照和 F1 预演计划；固定不连接 WPS、不执行按键 |
 | 文档族分析 | `tools/analyze_document_families.py` | P1a 可用 | 读取一批 Profile 1.1，生成候选文档族、代表样本、异常候选和人工复核队列；固定只作建议 |
 | 页面视觉预检 | `tools/build_document_render.py` | P1b 跨平台框架可用；生产批次待校准 | Mac 用 Quick Look 生成连续视觉预览；Windows 用 WPS COM 生成生产页面真值；52 份真实批次人工门禁尚未完成，两者均不执行 F1/F2/F3/F4 |
+| V2 统一交接单影子链 | `tools/build_question_contract_v2_shadow.py` | 第一部分离线可用 | 把旧 `QuestionUnit` 转为带稳定 ID、来源坐标、证据分区的 V2 契约并输出差异报告；固定 `mode=shadow`、不接管生产入口、不执行按键 |
 
 架构问题主口径共 6 个：当前 **1 个已解决、5 个部分解决、0 个未解决**。严格完成口径是 `1/6`，已进入工程解决口径是 `6/6`；详细进度见[《墨痕教育架构问题工程思维分析拆解》](./docs/墨痕教育架构问题工程思维分析拆解.md)。
 
@@ -110,6 +111,14 @@ python .\答案录入\answer_input.py
 ```
 
 它只生成外部 `DocumentProfile.json`、`ActionPlan.json` 及派生 Markdown。当前 `DocumentProfile` schema 为 1.1，包含文档标题、板块标题、题内小标题、题号、选项、正文等角色及其置信度和证据。JSON 是机器权威事实，Markdown 只供人工审核；角色层固定 `automatic_exclusion_enabled=false`，动作计划固定 `execution_enabled=false`，均不能直接驱动 WPS。
+
+需要核对旧题目识别结果能否进入统一交接单时，可运行 V2 影子入口：
+
+```powershell
+.\.venv\Scripts\python.exe .\tools\build_question_contract_v2_shadow.py "D:\...\原题.docx" --output-dir "D:\...\V2影子结果"
+```
+
+它按源文件名输出 `*_QuestionContractV2.json` 和 `*_QuestionContractV2Diff.json`，其中 `included / excluded / unknown` 必须构成严格互斥且完整的证据分区。当前只证明契约、稳定身份和旧链适配可离线复核；`mode=shadow`、`production_execution_enabled=false`、`keypress_count=0`，旧 F1/F2/F3/F4 生产链保持不变。
 
 未来高二生物题目使用 `理科 + future_biology` 覆盖层：每个顶层阿拉伯题号是一道 F1，`(1)(2)(3)` 不拆题；题干、选项、题图、原生表格和公式随题保留；试卷标题、分值说明、题组标题、选择题/非选择题标题、章节横幅、“对点训练”和“综合强化”不录入。当前已只读审计 52 份、764 道题，结构标题和已确认装饰媒体污染均为 0；Mac Quick Look 仅为开发预览，仍需 Windows WPS 核对最终 Range 和插件 F1。
 

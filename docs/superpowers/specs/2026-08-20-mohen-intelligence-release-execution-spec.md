@@ -1,7 +1,7 @@
 # 墨痕教育智能分层与模块隔离执行规格
 
 > 日期：2026-08-20
-> 状态：待按章节逐部分确认和实施
+> 状态：第一部分已完成影子契约与离线验证；第二至第十部分待逐部分确认和实施
 > 文档性质：施工总图，不代表全部功能已经实现
 > 阅读对象：业务负责人、开发者、后续接手 Agent
 > 核心要求：一次只实施一个部分；每部分必须能够独立测试、独立回退，不得一次性替换整条生产链
@@ -257,6 +257,17 @@ unknown_refs
 证明：交接单能无歧义表达来源和身份。
 
 不证明：题块判断本身正确，也不证明 WPS 能定位这些引用。
+
+### 3.9 2026-08-20 实施状态
+
+- 已新增 V2 契约原语、`QuestionUnitV2`、`CanonicalAnswerUnit`、两份 JSON Schema 和黄金 JSON；
+- 已实现旧 `QuestionUnit` 的只读影子适配、稳定身份和差异报告；
+- 影子产物固定 `mode=shadow`、`production_execution_enabled=false`、`keypress_count=0`；
+- 未修改旧 `QuestionUnit` / `AnswerUnit`，未接管 `DocumentProfile`、`ActionPlan` 或任何 F1/F2/F3/F4 生产入口；
+- 现有 `DocNode` 只会传递 metadata 已暴露的 table/media/formula 引用，未暴露对象仍需后续原始节点提取层补齐，不能冒充全源覆盖；
+- 离线契约和相邻回归通过；本部分没有、也不需要 WPS 实机按键验收。
+
+实施证据见 `问题归档/题目录入/2026-08-20-V2统一交接单与稳定身份.md`。
 
 ## 4. 第二部分：题目理解与 `QuestionUnitV2`
 

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mohen.local/schemas/question-unit-v2.schema.json",
+  "title": "QuestionUnitV2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_kind",
+    "generator_version",
+    "stable_unit_id",
+    "original_question_label",
+    "subject",
+    "subject_overlay",
+    "question_type",
+    "source_partition",
+    "decision_evidence"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "contract_kind": {"const": "question_unit_v2"},
+    "generator_version": {"type": "string", "minLength": 1},
+    "stable_unit_id": {"$ref": "#/$defs/stableUnitId"},
+    "original_question_label": {"type": "string", "minLength": 1},
+    "subject": {"type": "string", "minLength": 1},
+    "subject_overlay": {"type": ["string", "null"]},
+    "question_type": {"type": "string", "minLength": 1},
+    "source_partition": {"$ref": "#/$defs/sourcePartition"},
+    "decision_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/decisionEvidence"}
+    }
+  },
+  "$defs": {
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_sha256", "native_kind", "native_id", "occurrence", "text_anchor"],
+      "properties": {
+        "document_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "native_kind": {"enum": ["paragraph", "table", "media", "formula"]},
+        "native_id": {"type": "string", "minLength": 1},
+        "occurrence": {"type": "integer", "minimum": 1},
+        "text_anchor": {"type": "string"}
+      }
+    },
+    "stableUnitId": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_sha256", "unit_kind", "occurrence", "original_label", "value"],
+      "properties": {
+        "document_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "unit_kind": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"},
+        "occurrence": {"type": "integer", "minimum": 1},
+        "original_label": {"type": "string", "minLength": 1},
+        "value": {"type": "string", "pattern": "^mohen:v2:[0-9a-f]{64}$"}
+      }
+    },
+    "decisionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "reason", "source_refs", "confidence", "generator_version"],
+      "properties": {
+        "rule_id": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/sourceRef"}
+        },
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "generator_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "sourcePartition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["included_refs", "excluded_refs", "unknown_refs"],
+      "properties": {
+        "included_refs": {"type": "array", "items": {"$ref": "#/$defs/sourceRef"}},
+        "excluded_refs": {"type": "array", "items": {"$ref": "#/$defs/sourceRef"}},
+        "unknown_refs": {"type": "array", "items": {"$ref": "#/$defs/sourceRef"}}
+      }
+    }
+  }
+}
