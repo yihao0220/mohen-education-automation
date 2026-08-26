@@ -44,6 +44,8 @@
 │   ├── document_preflight.py       # DOCX只读画像、Docling对照、F1预演计划
 │   ├── contracts_v2.py             # V2稳定身份、来源坐标、证据与题答交接单
 │   ├── contract_v2_shadow.py       # 旧QuestionUnit到V2契约的影子适配与差异报告
+│   ├── question_understanding_v2.py # 题目候选关系与确定性QuestionUnitV2编译器
+│   ├── question_understanding_v2_shadow.py # 旧规则候选、逐引用影子差异与只读输出
 │   ├── document_roles.py           # 段落角色、置信度与可解释证据
 │   ├── document_families.py        # 文档族分组、代表样本与异常候选
 │   ├── document_render.py          # 跨平台PDF页面渲染；Windows WPS生产真值
@@ -111,7 +113,7 @@
    - `DocumentProfile` 1.1 的题内角色当前只作证据；`automatic_exclusion_enabled=false`，不得让角色结果绕过文档族阈值和审核门禁直接删除段落
    - `DocumentFamilyReport` 1.0 当前只作 P1a 批次建议；`classification_mode=advisory_only`、`automatic_rule_binding_enabled=false`、`production_execution_enabled=false`，不得把候选文档族直接绑定到生产规则或 WPS 执行
    - P1b 的 macOS Quick Look 结果固定 `page_truth_authority=false`，只供开发预览；只有 Windows WPS COM，或与 `--pdf-input` 同时显式传入 `--attest-wps-export` 的 WPS PDF，才能作为生产页面真值；52/52 人工审核完成前不得进入 P1c
-   - V2 统一交接单第一部分当前只允许影子生成与差异对照；必须保持 `mode=shadow`、`production_execution_enabled=false`、`keypress_count=0`，在生产消费者、审核门禁和 Windows/WPS 验收完成前不得替换旧 F1/F2/F3/F4 入口
+   - V2 第一、第二部分当前只允许影子生成、候选编译与逐引用差异对照；必须保持 `mode=shadow`、`production_execution_enabled=false`、`keypress_count=0`。规则或可选 AI 只能提交来源关系、证据和不确定点；确定性编译器负责完整覆盖、重叠、顺序、题号、低置信度和富内容归属检查。生产消费者、审核门禁和 Windows/WPS 验收完成前，不得替换旧 F1/F2/F3/F4 入口
 
 ### 代码风格
 
